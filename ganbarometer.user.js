@@ -92,7 +92,7 @@ Click "OK" to be forwarded to installation instructions.`
   /*
    * ********* MAIN function to calculate and display metrics ********
    */
-  async function render() {
+  async function render(itemData, apiv2) {
     // Get all reviews, then filter out all but the most recent
     // get_reviews() returns an Array of "reviews" (each review is an Array)
     // each individual array contains:
@@ -104,6 +104,28 @@ Click "OK" to be forwarded to installation instructions.`
     // Calculate and save our second set of metrics
     // findSessions() returns an Array of Session objects
     metrics.sessions = findSessions(newReviews);
+
+    // Finally, retrieve and save the apprentice and rk12 metrics
+    let config = {
+      wk_items: {
+        filters: {
+          srs: "appr1, appr2, appr3, appr4",
+        },
+      },
+    };
+    let items = await wkof.ItemData.get_items(config);
+    metrics.apprentice = items.length;
+    config = {
+      wk_items: {
+        filters: {
+          srs: "appr1, appr2",
+          item_type: "rad, kan",
+        },
+      },
+    };
+    items = await wkof.ItemData.get_items(config);
+    metrics.rk12 = items.length;
+
     // Optionally log what we've extracted
     if (debug) {
       console.log(
@@ -123,11 +145,12 @@ ${metrics.sessions.length} sessions:`
        Review minutes: ${s.minutes()}`
         );
       });
+      console.log(`${metrics.apprentice} apprentice ${metrics.rk12} rk12`);
       // debugger;
     }
   }
 
-  // Fuction to return a filtered array of reviews
+  // Function to return a filtered array of reviews
   // older than the specified number of hours
   function filterRecent(reviews, hours) {
     return reviews.filter(
