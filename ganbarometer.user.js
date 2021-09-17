@@ -15,7 +15,7 @@
   "use strict";
 
   /*
-   * * * * User Editable * * *
+   * * * * User Modifiable Constants * * *
    */
 
   // Number of hours to summarize reviews over
@@ -25,11 +25,11 @@
   // to be considered in the same session
   const sessionIntervalMax = 10;
 
-  // Print debug messages to console?
-  const debug = true;
+  // Change to 'true' if you want to debugging info
+  const debug = false;
 
   /*
-   * * * * End of user editable variables * * *
+   * -------------------- Do Not Edit Below This Line -----------------------------
    */
 
   // This script identifiers for caches, etc.
@@ -38,8 +38,10 @@
 
   // Ensure WKOF is installed
   if (!wkof) {
-    let response = confirm(`${script_name} requires WaniKani Open Framework.
-Click "OK" to be forwarded to installation instructions.`);
+    let response = confirm(
+      `${script_name} requires WaniKani Open Framework.
+Click "OK" to be forwarded to installation instructions.`
+    );
     if (response) {
       window.location.href =
         "https://community.wanikani.com/t/instructions-installing-wanikani-open-framework/28549";
@@ -48,16 +50,17 @@ Click "OK" to be forwarded to installation instructions.`);
   }
 
   // Wait until modules are ready then initiate script
-  wkof.include("ItemData,Apiv2");
-  wkof.ready("ItemData,Apiv2").then(render);
+  wkof.include("ItemData, Apiv2");
+  wkof.ready("ItemData, Apiv2").then(render);
 
-  // Values we are after
-  const stats = {
-    reviewed: 0,
-    sessions: [],
-    apprentice: 0,
-    rk12: 0,
+  // The metrics we want to retrieve and display
+  const metrics = {
+    reviewed: 0, // total number of items reviewed over interval
+    sessions: [], // array of Session objects
+    apprentice: 0, // total number of items currently in Apprentice (stages 1-4)
+    rk12: 0, // total number of radicals & kanji in stages 1 or 2
     minutes: function () {
+      // total number of minutes spent reviewing over interval
       let min = 0;
       for (let sess of this.sessions) {
         min += sess.minutes();
@@ -65,6 +68,7 @@ Click "OK" to be forwarded to installation instructions.`);
       return min;
     },
     misses: function () {
+      // number of review items answered incorrectly over interval
       let s = 0;
       for (let sess of this.sessions) {
         s += sess.misses;
@@ -73,101 +77,114 @@ Click "OK" to be forwarded to installation instructions.`);
     },
   };
 
-  // Main routine to display the stats
+  /*
+   * ********* MAIN function to calculate and display metrics ********
+   */
   async function render() {
-    // Get all reviews, then filter out just the most recent
+    // Get all reviews, then filter out all but the most recent
+    // get_reviews() returns an Array of "reviews" (each review is an Array)
+    // each individual array contains:
+    // [creationDate, subjectID, startingSRS, incorrectMeaning, incorrectReading]
     let allReviews = await review_cache.get_reviews();
     let newReviews = filterRecent(allReviews, interval);
-
-    stats.reviewed = newReviews.length;
-
+    // Save our first metric
+    metrics.reviewed = newReviews.length;
+    // Calculate and save our second set of metrics
+    // findSessions() returns an Array of Session objects
+    metrics.sessions = findSessions(newReviews);
     if (debug) {
       console.log(
-        `GanbarOmeter: ${stats.totReviewed} items reviewed over the past ${interval} hours.`
+        `${newReviews.length} reviews in ${interval} hours (${
+          allReviews.length
+        } total reviews)
+${metrics.misses()} total misses
+${metrics.minutes()} total minutes
+${metrics.sessions.length} sessions:`
       );
-    }
-
-    stats.sessions = findSessions(newReviews);
-
-    if (debug) {
-      console.log(`GanbarOmeter: `);
-      console.log(`   - ${stats.sessions.length} review sessions`);
-      console.log(` . - ${stats.minutes()} total minutes reviewed`);
-      console.log(` . - ${stats.misses()} total misses (reading or meaning)`);
-      let i = 0;
-      stats.sessions.forEach((session) => {
-        i += 1;
+      metrics.sessions.forEach((s) => {
         console.log(
-          `      - ${i}: ${session.len} reviews from ${session.startTime} to ${session.endTime}`
+          `     - Start: ${s.startTime}
+       End: ${s.endTime}
+       Misses: ${s.misses}
+       Reviews: ${s.len}
+       Review minutes: ${s.minutes()}`
         );
-        console.log(` .           (${session.minutes()} minutes)`);
-        console.log(` .           (${session.misses} misses)`);
       });
+      // debugger;
     }
   }
 
+  // Fuction to return a filtered array of reviews
+  // older than the specified number of hours
   function filterRecent(reviews, hours) {
     return reviews.filter(
-      // a = [creationDate, subjectID, startingSRS, incorrectMeaning, incorrectReading]
+      // a[0] = creationDate
       (a) => a[0] > Date.now() - hours * 60 * 60 * 1000
     );
   }
 
   // A Session object holds an index into an array of reviews, plus a length
+  // Define a Session object
   function Session(firstIndex, length, startTime, endTime, misses) {
-    this.firstIndex = firstIndex;
-    this.len = length;
-    this.startTime = startTime;
-    this.endTime = endTime;
-    this.misses = misses;
+    this.firstIndex = firstIndex; // index of first review in this session
+    this.len = length; // number of reviews in this session
+    this.startTime = startTime; // start time of first review (Date object)
+    this.endTime = endTime; // start(!!) time of final review (Date object)
+    this.misses = misses; // "miss" means one or more incorrect answers (reading or meaning)
     this.minutes = function () {
+      // number of minutes spent reviewing in this session
       return Math.round((this.endTime - this.startTime) / (1000 * 60));
     };
   }
 
-  // Find strings of reviews no more than sessionIntervalMax apart
+  // Find sequences of reviews no more than sessionIntervalMax apart
   function findSessions(reviews) {
     // Start with an empty array of sessions
     let sessions = [];
-
     // Get the time of the first review
     let firstTime = reviews.length > 0 ? new Date(reviews[0][0]) : new Date(0);
-
-    // Create a session for the first review, but 0 length and 0 misses
-    // Set the start and end times to the time of the very first review
-    let curSession = new Session(0, 0, firstTime, firstTime, 0);
-
-    // iterate through reviews to find sessions
+    // Initialize what will become sessions[0]
+    let curSession = new Session(
+      0, // firstIndex - start with reviews[0]
+      0, // length (currently unknown, initialize to zero)
+      firstTime, // startTime is time of first review
+      firstTime, // endTime (currently unknown, initialize to startTime)
+      0 // misses (currently unknown, initialize to zero)
+    );
+    // Now iterate through reviews to find sessions
+    // note that reviews[0] is guaranteed to be within the current session!
     reviews.forEach((review) => {
-      if (withinSessionRange(curSession.endTime, review)) {
+      if (
+        withinSession(
+          curSession.endTime, // prevTime
+          review[0], // newTime
+          sessionIntervalMax // maxMinutes
+        )
+      ) {
         // Still within a session, so increment the length
         curSession.len += 1;
-
-        // And misses in # of incorrect meaning and reading
-        curSession.misses += review[3] + review[4];
-
-        // And update the endTime the the time of this review
+        // "miss" means one or more incorrect meaning or reading answers
+        curSession.misses += review[3] + review[4] > 0 ? 1 : 0;
+        // Update endTime the the time of this review
         curSession.endTime = new Date(review[0]);
       } else {
-        // New session, so push the old one onto the array
+        // Finished prior session and starting a new one
         sessions.push(curSession);
-
         // And create a new curSession of length 1 for this review
         let newIndex = curSession.firstIndex + curSession.len;
         let newDate = new Date(review[0]);
-        let curMisses = review[3] + review[4];
+        let curMisses = review[3] + review[4] > 0 ? 1 : 0;
         curSession = new Session(newIndex, 1, newDate, newDate, curMisses);
       }
     });
-
-    // Finally, push the last session onto the array
+    // Don't forget the last session when we fall out of the loop
     sessions.push(curSession);
-
     return sessions;
   }
 
-  function withinSessionRange(sessionStart, review) {
-    let timeDifference = review[0] - sessionStart;
-    return timeDifference <= sessionIntervalMax * 1000 * 60 * 60;
+  // Determine if newTime is within maxMinutes of prevTime
+  function withinSession(prevTime, newTime, maxMinutes) {
+    let timeDifference = newTime - prevTime;
+    return timeDifference <= maxMinutes * 1000 * 60 * 60;
   }
 })(window.wkof, window.review_cache);
