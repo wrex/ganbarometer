@@ -52,14 +52,20 @@ Click "OK" to be forwarded to installation instructions.`);
   wkof.ready("ItemData,Apiv2").then(render);
 
   // Values we are after
-  const Stats = function (reviewed, minutes, misses, apprentice, rk12) {
-    this.reviewed = reviewed; // #items revewed over interval
-    this.minutes = minutes; // total review minutes over interval
-    this.misses = misses; // # items answered incorrectly over interval
-    this.apprentice = apprentice; // # items in Apprentice stages
-    this.rk12 = rk12; // # radical and kanji items in stages 1 and 2
+  const stats = {
+    sessions: [],
+    reviewed: 0,
+    misses: 0,
+    apprentice: 0,
+    rk12: 0,
+    minutes: function () {
+      let min = 0;
+      for (let sess of this.sessions) {
+        min += sess.minutes();
+      }
+      return min;
+    },
   };
-  const stats = new Stats(0, 0, 0, 0, 0);
 
   // Main routine to display the stats
   async function render() {
@@ -67,17 +73,28 @@ Click "OK" to be forwarded to installation instructions.`);
     let allReviews = await review_cache.get_reviews();
     let newReviews = filterRecent(allReviews, interval);
 
-    stats.reviewed = newReviews.length;
+    stats.totReviewed = newReviews.length;
 
     if (debug) {
       console.log(
-        `GanbarOmeter: ${stats.reviewed} items reviewed over past ${interval} hours.`
+        `GanbarOmeter: ${stats.totReviewed} items reviewed over the past ${interval} hours.`
       );
     }
 
-    let sessions = findSessions(newReviews);
+    stats.sessions = findSessions(newReviews);
+
     if (debug) {
-      console.log(`GanbarOmeter: ${sessions.length} review sessions`);
+      console.log(`GanbarOmeter: `);
+      console.log(`   - ${stats.sessions.length} review sessions`);
+      console.log(` . - ${stats.minutes()} total minutes reviewed`);
+      let i = 0;
+      stats.sessions.forEach((session) => {
+        i += 1;
+        console.log(
+          `      - ${i}: ${session.len} reviews from ${session.startTime} to ${session.endTime}`
+        );
+        console.log(` .           (${session.minutes()} minutes)`);
+      });
     }
   }
 
@@ -94,7 +111,9 @@ Click "OK" to be forwarded to installation instructions.`);
     this.len = length;
     this.startTime = startTime;
     this.endTime = endTime;
-    this.minutes = (this.endTime - this.startTime) / (1000 * 60);
+    this.minutes = function () {
+      return Math.round((this.endTime - this.startTime) / (1000 * 60));
+    };
   }
 
   // Find strings of reviews no more than sessionIntervalMax apart
