@@ -10,6 +10,18 @@
 // @require      https://greasyfork.org/scripts/410909-wanikani-review-cache/code/Wanikani:%20Review%20Cache.js
 // @grant        none
 // ==/UserScript==
+//
+// Note: This script uses the cache from Kumirei's Review Cache:
+// https://community.wanikani.com/t/userscript-review-cache/46162
+//
+// Since this script only needs a few days of reviews, I could have eliminated
+// a dependency and allowed the script to load much faster by using
+// wkof.Apiv2.fetch_endpoint() instead of get_reviews(), but I figured many
+// users of this script will also install Kumire's wonderful Heatmap script
+// (https://community.wanikani.com/t/userscript-wanikani-heatmap/34947).
+// So I thought it made sense to share the same cache.
+//
+// I may revisit this decision in a future version, though.
 
 (function (wkof, review_cache) {
   "use strict";
@@ -25,8 +37,8 @@
   // to be considered in the same session
   const sessionIntervalMax = 10;
 
-  // Change to 'true' if you want to debugging info
-  const debug = false;
+  // Change to 'true' if you want to enable debugging
+  const debug = true;
 
   /*
    * -------------------- Do Not Edit Below This Line -----------------------------
@@ -92,6 +104,7 @@ Click "OK" to be forwarded to installation instructions.`
     // Calculate and save our second set of metrics
     // findSessions() returns an Array of Session objects
     metrics.sessions = findSessions(newReviews);
+    // Optionally log what we've extracted
     if (debug) {
       console.log(
         `${newReviews.length} reviews in ${interval} hours (${
