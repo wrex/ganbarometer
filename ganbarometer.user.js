@@ -53,9 +53,8 @@ Click "OK" to be forwarded to installation instructions.`);
 
   // Values we are after
   const stats = {
-    sessions: [],
     reviewed: 0,
-    misses: 0,
+    sessions: [],
     apprentice: 0,
     rk12: 0,
     minutes: function () {
@@ -65,6 +64,13 @@ Click "OK" to be forwarded to installation instructions.`);
       }
       return min;
     },
+    misses: function () {
+      let s = 0;
+      for (let sess of this.sessions) {
+        s += sess.misses;
+      }
+      return s;
+    },
   };
 
   // Main routine to display the stats
@@ -73,7 +79,7 @@ Click "OK" to be forwarded to installation instructions.`);
     let allReviews = await review_cache.get_reviews();
     let newReviews = filterRecent(allReviews, interval);
 
-    stats.totReviewed = newReviews.length;
+    stats.reviewed = newReviews.length;
 
     if (debug) {
       console.log(
@@ -87,6 +93,7 @@ Click "OK" to be forwarded to installation instructions.`);
       console.log(`GanbarOmeter: `);
       console.log(`   - ${stats.sessions.length} review sessions`);
       console.log(` . - ${stats.minutes()} total minutes reviewed`);
+      console.log(` . - ${stats.misses()} total misses (reading or meaning)`);
       let i = 0;
       stats.sessions.forEach((session) => {
         i += 1;
@@ -94,6 +101,7 @@ Click "OK" to be forwarded to installation instructions.`);
           `      - ${i}: ${session.len} reviews from ${session.startTime} to ${session.endTime}`
         );
         console.log(` .           (${session.minutes()} minutes)`);
+        console.log(` .           (${session.misses} misses)`);
       });
     }
   }
@@ -106,11 +114,12 @@ Click "OK" to be forwarded to installation instructions.`);
   }
 
   // A Session object holds an index into an array of reviews, plus a length
-  function Session(firstIndex, length, startTime, endTime) {
+  function Session(firstIndex, length, startTime, endTime, misses) {
     this.firstIndex = firstIndex;
     this.len = length;
     this.startTime = startTime;
     this.endTime = endTime;
+    this.misses = misses;
     this.minutes = function () {
       return Math.round((this.endTime - this.startTime) / (1000 * 60));
     };
@@ -124,15 +133,19 @@ Click "OK" to be forwarded to installation instructions.`);
     // Get the time of the first review
     let firstTime = reviews.length > 0 ? new Date(reviews[0][0]) : new Date(0);
 
-    // Create a session for the first review, but zero length
+    // Create a session for the first review, but 0 length and 0 misses
     // Set the start and end times to the time of the very first review
-    let curSession = new Session(0, 0, firstTime, firstTime);
+    let curSession = new Session(0, 0, firstTime, firstTime, 0);
 
     // iterate through reviews to find sessions
     reviews.forEach((review) => {
       if (withinSessionRange(curSession.endTime, review)) {
         // Still within a session, so increment the length
         curSession.len += 1;
+
+        // And misses in # of incorrect meaning and reading
+        curSession.misses += review[3] + review[4];
+
         // And update the endTime the the time of this review
         curSession.endTime = new Date(review[0]);
       } else {
@@ -142,7 +155,8 @@ Click "OK" to be forwarded to installation instructions.`);
         // And create a new curSession of length 1 for this review
         let newIndex = curSession.firstIndex + curSession.len;
         let newDate = new Date(review[0]);
-        curSession = new Session(newIndex, 1, newDate, newDate);
+        let curMisses = review[3] + review[4];
+        curSession = new Session(newIndex, 1, newDate, newDate, curMisses);
       }
     });
 
