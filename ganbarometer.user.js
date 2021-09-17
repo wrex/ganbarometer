@@ -67,10 +67,10 @@ Click "OK" to be forwarded to installation instructions.`
 
   // The metrics we want to retrieve and display
   const metrics = {
-    reviewed: 0, // total number of items reviewed over interval
-    sessions: [], // array of Session objects
-    apprentice: 0, // total number of items currently in Apprentice (stages 1-4)
-    rk12: 0, // total number of radicals & kanji in stages 1 or 2
+    reviewed: 0, // TBD: total number of items reviewed over interval
+    sessions: [], // TBD: array of Session objects
+    apprentice: 0, // TBD: total number of items currently in Apprentice (stages 1-4)
+    newKanji: 0, // TBD: total number of radicals & kanji in stages 1 or 2
     minutes: function () {
       // total number of minutes spent reviewing over interval
       let min = 0;
@@ -86,6 +86,23 @@ Click "OK" to be forwarded to installation instructions.`
         s += sess.misses;
       }
       return s;
+    },
+    load: function () {
+      // reviews-per-day averaged over the interval
+      return Math.round((this.reviewed * 24) / interval);
+    },
+    speed: function () {
+      // seconds-per-review averaged over the sessions
+      return Math.round((60 * this.minutes()) / this.reviewed);
+    },
+    difficulty: function () {
+      // return a value from 0 to 100, with 50 representing "normal"
+      // Normal = 100 items in Apprentice bucket (stages 1-4)
+      // but kanji in stages 1 and 2 are more difficult
+      // so weight them heavily (10 such items make it 50% more difficult)
+      let weighting = 1 + this.newKanji * 0.05;
+      let raw = Math.round((this.apprentice / 100) * 50 * weighting);
+      return raw > 100 ? 100 : raw;
     },
   };
 
@@ -105,7 +122,7 @@ Click "OK" to be forwarded to installation instructions.`
     // findSessions() returns an Array of Session objects
     metrics.sessions = findSessions(newReviews);
 
-    // Finally, retrieve and save the apprentice and rk12 metrics
+    // Finally, retrieve and save the apprentice and newKanji metrics
     let config = {
       wk_items: {
         filters: {
@@ -119,17 +136,17 @@ Click "OK" to be forwarded to installation instructions.`
       wk_items: {
         filters: {
           srs: "appr1, appr2",
-          item_type: "rad, kan",
+          item_type: "kan",
         },
       },
     };
     items = await wkof.ItemData.get_items(config);
-    metrics.rk12 = items.length;
+    metrics.newKanji = items.length;
 
     // Optionally log what we've extracted
     if (debug) {
       console.log(
-        `${newReviews.length} reviews in ${interval} hours (${
+        `${metrics.reviewed} reviews in ${interval} hours (${
           allReviews.length
         } total reviews)
 ${metrics.misses()} total misses
@@ -145,7 +162,12 @@ ${metrics.sessions.length} sessions:`
        Review minutes: ${s.minutes()}`
         );
       });
-      console.log(`${metrics.apprentice} apprentice ${metrics.rk12} rk12`);
+      console.log(
+        `${metrics.apprentice} apprentice ${metrics.newKanji} newKanji`
+      );
+      console.log(`${metrics.load()} reviews per day`);
+      console.log(`${metrics.speed()} seconds per review on average`);
+      console.log(`Difficulty: ${metrics.difficulty()} on a scale of 0 to 100`);
       // debugger;
     }
   }
