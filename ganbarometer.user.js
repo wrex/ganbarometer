@@ -281,7 +281,7 @@ ${metrics.sessions.length} sessions:`
     setGaugeValue(gauge, 0.3);
 
     gauge = gbSection.querySelector("#gbLoad");
-    setGaugeValue(gauge, 0.4);
+    setGaugeValue(gauge, 0.4, "143");
 
     gauge = gbSection.querySelector("#gbSpeed");
     setGaugeValue(gauge, 0.5);
@@ -301,17 +301,17 @@ ${metrics.sessions.length} sessions:`
   </div>`;
   }
 
-  function setGaugeValue(gauge, value) {
+  function setGaugeValue(gauge, value, displayValue) {
     if (value < 0 || value > 1) {
       return;
     }
 
+    let display = displayValue ? displayValue : `${Math.round(value * 100)}%`;
+
     gauge.querySelector(".gauge__fill").style.transform = `rotate(${
       value / 2
     }turn)`;
-    gauge.querySelector(".gauge__cover").textContent = `${Math.round(
-      value * 100
-    )}%`;
+    gauge.querySelector(".gauge__cover").textContent = display;
   }
 
   // Function to return a filtered array of reviews
