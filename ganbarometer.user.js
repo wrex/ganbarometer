@@ -181,6 +181,61 @@ ${metrics.sessions.length} sessions:`
       console.log(`${metrics.speed()} seconds per review (0-30)`);
       console.log(`Difficulty: ${metrics.difficulty()} (0-100)`);
     }
+
+    // Now populate the section and add it to the dashboard
+    updateDashboard(metrics, settings);
+  }
+
+  // Create an html <section> for our metrics and add to dashboard
+  function updateDashboard(metrics, settings) {
+    let css =
+      "https://raw.githubusercontent.com/rotvalli/css-gauge/master/gauge.min.css";
+    let html = `<div>
+    <h1>Difficulty</h1>
+    <div id="demoGauge" class="gauge" style="
+        --gauge-value:50;
+        width:100px;
+        height:100px;">
+
+        <!-- Layout testing guides
+        <div class="guide">
+            <div class="guide-x"></div>
+            <div class="guide-y"></div>
+        </div>
+        -->
+
+        <div class="ticks">
+            <div class="tithe" style="--gauge-tithe-tick:1;"></div>
+            <div class="tithe" style="--gauge-tithe-tick:2;"></div>
+            <div class="tithe" style="--gauge-tithe-tick:3;"></div>
+            <div class="tithe" style="--gauge-tithe-tick:4;"></div>
+            <div class="tithe" style="--gauge-tithe-tick:6;"></div>
+            <div class="tithe" style="--gauge-tithe-tick:7;"></div>
+            <div class="tithe" style="--gauge-tithe-tick:8;"></div>
+            <div class="tithe" style="--gauge-tithe-tick:9;"></div>
+            <div class="min"></div>
+            <div class="mid"></div>
+            <div class="max"></div>
+        </div>
+        <div class="tick-circle"></div>
+
+        <div class="needle">
+            <div class="needle-head"></div>
+        </div>
+        <div class="labels">
+            <div class="value-label"></div>
+        </div>
+    </div>
+</div>`;
+
+    wkof.load_css(css, true /* use_cache */).then(() => {
+      // Create a section for our content
+      const gbSection = document.createElement("Section");
+      gbSection.classList.add(`${script_id}`);
+      gbSection.innerHTML = html;
+      // Now add our new section at the just before the forum list
+      document.querySelector(".progress-and-forecast").before(gbSection);
+    });
   }
 
   // Function to return a filtered array of reviews
