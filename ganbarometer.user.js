@@ -189,223 +189,129 @@ ${metrics.sessions.length} sessions:`
   // Create an html <section> for our metrics and add to dashboard
   function updateDashboard(metrics, settings) {
     let css = `
-section.ganbarometer {
-    display: flex;
-    justify-content: space-evenly;
-}
+    .${script_id} {
+      display:flex;
+      justify-content: space-around;
+      background-color: #f4f4f4;
+      border-radius: 5px;
+      overflow: hidden;
+    }
 
-.ganbarometer h1 {
-    text-align: center;
-    justify-content: center;
-    font-size: 2em;
-}
+    .${script_id} h1 {
+      font-size: 18px;
+      margin: 0;
+    }
 
-.ganbarometer p {
-    text-align: center;
-    justify-content: center;
-    font-size: 1em;
-}
+    .${script_id} p {
+      font-size: 10px;
+      margin: 0;
+    }
 
-.gbGaugeContainer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
+    .gauge {
+      width: 100%;
+      min-width: 70px;
+      max-width: 150px;
+      padding: 0 10px;
+      color: #004033;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f4f4f4;
+    }
 
-.gbGauge {
-    position: relative;
-    background: var(--gauge-bg);
-    border: 0.05em solid #222222;
-    border-radius: 50%;
-    min-width: 75px;
-    min-height: 75px;
-    font-weight: bold;
-    font-size: 0.8em;
-}
+    .gauge__body {
+      width: 100%;
+      height: 0;
+      padding-bottom: 50%;
+      background: #b4c0be;
+      position: relative;
+      border-top-left-radius: 100% 200%;
+      border-top-right-radius: 100% 200%;
+      overflow: hidden;
+    }
 
-.gbGauge .ticks {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0%;
-    left: 0%;
-}
+    .gauge__fill {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: inherit;
+      height: 100%;
+      background: #009578;
+      transform-origin: center top;
+      transform: rotate(0.25turn);
+      transition: transform 0.2s ease-out;
+    }
 
-.gbGauge .ticks .min {
-    background: black;
-    position: relative;
-    left: 0%;
-    top: 50%;
-    width: 100%;
-    height: 1%;
-    margin-bottom: -1%;
-    background: linear-gradient(90deg, rgba(2, 0, 36, 0) 0%, rgba(0, 0, 0, 0) 4%, rgba(0, 0, 0, 1) 4%, rgba(0, 0, 0, 1) 15%, rgba(0, 0, 0, 0) 15%);
-    transform: rotate(-45deg);
-}
+    .gauge__cover {
+      width: 75%;
+      height: 150%;
+      background: #f4f4f4;
+      border-radius: 50%;
+      position: absolute;
+      top: 25%;
+      left: 50%;
+      transform: translateX(-50%);
 
-.gbGauge .ticks .mid {
-    background: black;
-    position: relative;
-    left: 0%;
-    top: 50%;
-    width: 100%;
-    height: 1%;
-    margin-bottom: -1%;
-    background: linear-gradient(90deg, rgba(2, 0, 36, 0) 0%, rgba(0, 0, 0, 0) 4%, rgba(0, 0, 0, 1) 4%, rgba(0, 0, 0, 1) 15%, rgba(0, 0, 0, 0) 15%);
-    transform: rotate(90deg);
-}
-
-.gbGauge .ticks .max {
-    background: black;
-    position: relative;
-    left: 0%;
-    top: 50%;
-    width: 100%;
-    height: 1%;
-    margin-bottom: -1%;
-    background: linear-gradient(90deg, rgba(2, 0, 36, 0) 0%, rgba(0, 0, 0, 0) 4%, rgba(0, 0, 0, 1) 4%, rgba(0, 0, 0, 1) 15%, rgba(0, 0, 0, 0) 15%);
-    transform: rotate(225deg);
-}
-
-.gbGauge .ticks .tithe {
-    transform: rotate(calc(27deg * var(--gauge-tithe-tick) - 45deg));
-    background: black;
-    position: relative;
-    left: 0%;
-    top: 50%;
-    width: 100%;
-    height: 1%;
-    margin-bottom: -1%;
-    background: linear-gradient(90deg, rgba(2, 0, 36, 0) 0%, rgba(0, 0, 0, 0) 10%, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 1) 15%, rgba(0, 0, 0, 0) 15%);
-}
-
-.gbGauge .tick-circle {
-    position: absolute;
-    top: 15%;
-    left: 15%;
-    width: calc(70% - 0.1em);
-    height: calc(70% - 0.1em);
-    border-left: 0.1em solid;
-    border-top: 0.1em solid;
-    border-right: 0.1em solid;
-    border-bottom: 0.1em solid transparent;
-    border-radius: 50%;
-}
-
-.gbGauge .needle {
-    /* Gauge value range 0-100 */
-    transform: rotate(calc(270deg * calc(var(--gauge-value, 0deg) / 100) - 45deg));
-    background: black;
-    position: relative;
-    left: 0%;
-    top: 49%;
-    width: 100%;
-    height: 4%;
-    margin-bottom: -4%;
-    background: linear-gradient(90deg, rgba(2, 0, 36, 0) 0%, rgba(0, 0, 0, 0) 24%, rgba(0, 0, 0, 1) 24%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 0) 50%);
-}
-
-.gbGauge .needle .needle-head {
-    position: relative;
-    top: 15%;
-    left: 22.5%;
-    width: 2.7%;
-    height: 70%;
-    background-color: black;
-    transform: rotate(-45deg);
-}
-
-.gbGauge .labels {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-}
-
-.gbGauge .labels .value-label {
-    position: relative;
-    top: 75%;
-    text-align: center;
-}
-
-.gbGauge .labels .value-label::after {
-    counter-reset: gauge-value var(--gauge-display-value);
-    content: counter(gauge-value);
-}
-
-.guide-x, .guide-y {
-    background-color: orange;
-    visibility: visible;
-    position: absolute;
-    left: 50%;
-    top: 0;
-    width: 1px;
-    height: 100%;
-}
-
-.guide-y {
-    left: 0;
-    top: 50%;
-    width: 100%;
-    height: 1px;
-}`;
+      /* Text */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 25%;
+      box-sizing: border-box;
+    }
+      `;
 
     // Append our styling to the head of the doucment
     const gbStyle = document.createElement("style");
     gbStyle.id = script_id + "CSS";
     gbStyle.innerHTML = css;
-
     document.querySelector("head").append(gbStyle);
 
     let html =
-      renderDiv("Difficulty", 54, 54, "0 - 100") +
-      renderDiv("Load", 37, 111, "0 - 300") +
-      renderDiv("Speed", 48, 15, "0-30");
+      renderDiv("gbDifficulty", "Difficulty", "0 - 100") +
+      renderDiv("gbLoad", "Load", "0 - 300") +
+      renderDiv("gbSpeed", "Speed", "0-30");
 
     // Create a section for our content
     const gbSection = document.createElement("Section");
     gbSection.classList.add(`${script_id}`);
     gbSection.innerHTML = html;
+
+    let gauge = gbSection.querySelector("#gbDifficulty");
+    setGaugeValue(gauge, 0.3);
+
+    gauge = gbSection.querySelector("#gbLoad");
+    setGaugeValue(gauge, 0.4);
+
+    gauge = gbSection.querySelector("#gbSpeed");
+    setGaugeValue(gauge, 0.5);
+
     // Now add our new section at the just before the forum list
     document.querySelector(".progress-and-forecast").before(gbSection);
   }
 
-  function renderDiv(title, value, displayValue, text) {
-    return `<div class="gbGaugeContainer">
+  function renderDiv(id, title, text) {
+    return `<div id="${id}" class="gauge">
     <h1>${title}</h1>
-    <div id="demoGauge" class="gbGauge" style="
-        --gauge-value:${value};
-        --gauge-display-value:${displayValue};
-        width: 75px;
-        height: 75px;">
-
-        <div class="guide">
-            <div class="guide-x"></div>
-            <div class="guide-y"></div>
-        </div>
-        <div class="ticks">
-            <div class="tithe" style="--gauge-tithe-tick:1;"></div>
-            <div class="tithe" style="--gauge-tithe-tick:2;"></div>
-            <div class="tithe" style="--gauge-tithe-tick:3;"></div>
-            <div class="tithe" style="--gauge-tithe-tick:4;"></div>
-            <div class="tithe" style="--gauge-tithe-tick:6;"></div>
-            <div class="tithe" style="--gauge-tithe-tick:7;"></div>
-            <div class="tithe" style="--gauge-tithe-tick:8;"></div>
-            <div class="tithe" style="--gauge-tithe-tick:9;"></div>
-            <div class="min"></div>
-            <div class="mid"></div>
-            <div class="max"></div>
-        </div>
-        <div class="tick-circle"></div>
-
-        <div class="needle">
-            <div class="needle-head"></div>
-        </div>
-        <div class="labels">
-            <div class="value-label"></div>
-        </div>
+    <div class="gauge__body">
+      <div class="gauge__fill"></div>
+      <div class="gauge__cover"></div>
     </div>
     <p>${text}</p>
-</div>`;
+  </div>`;
+  }
+
+  function setGaugeValue(gauge, value) {
+    if (value < 0 || value > 1) {
+      return;
+    }
+
+    gauge.querySelector(".gauge__fill").style.transform = `rotate(${
+      value / 2
+    }turn)`;
+    gauge.querySelector(".gauge__cover").textContent = `${Math.round(
+      value * 100
+    )}%`;
   }
 
   // Function to return a filtered array of reviews
