@@ -30,19 +30,15 @@
    * * * * User Modifiable Constants * * *
    */
 
-  // Number of hours to summarize reviews over
-  const interval = 72;
-
-  // Number of minutes since prior review for a subsequent review
-  // to be considered in the same session
-  const sessionIntervalMax = 10;
-
-  // Change to 'true' if you want to enable debugging
-  const debug = true;
-
-  /*
-   * -------------------- Do Not Edit Below This Line -----------------------------
-   */
+  const settings = {
+    debug: true,
+    interval: 27, // Number of hours to summarize reviews over
+    sessionIntervalMax: 10, // max minutes between reviews in same session
+    newKanjiWeighting: 0.05, // weighting factor for new kanji (10items = 50% harder)
+    normalApprenticeQty: 100, // normal number of items in apprentice queue
+    maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
+    maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
+  };
 
   // This script identifiers for caches, etc.
   const script_id = "ganbarometer";
@@ -87,11 +83,11 @@ Click "OK" to be forwarded to installation instructions.`
       }
       return s;
     },
-    load: function () {
+    reviewsPerDay: function () {
       // reviews-per-day averaged over the interval
-      return Math.round((this.reviewed * 24) / interval);
+      return Math.round((this.reviewed * 24) / settings.interval);
     },
-    speed: function () {
+    secondsPerReview: function () {
       // seconds-per-review averaged over the sessions
       return Math.round((60 * this.minutes()) / this.reviewed);
     },
@@ -100,9 +96,25 @@ Click "OK" to be forwarded to installation instructions.`
       // Normal = 100 items in Apprentice bucket (stages 1-4)
       // but kanji in stages 1 and 2 are more difficult
       // so weight them heavily (10 such items make it 50% more difficult)
-      let weighting = 1 + this.newKanji * 0.05;
-      let raw = Math.round((this.apprentice / 100) * 50 * weighting);
+      let weighting = 1 + this.newKanji * settings.newKanjiWeighting;
+      let raw = Math.round(
+        (this.apprentice / settings.normalApprenticeQty) * 50 * weighting
+      );
       return raw > 100 ? 100 : raw;
+    },
+    load: function () {
+      // returns a value betweeen 0 and 300 representing the number of reviews
+      // per day capped at a value of 300 (for gauge display)
+      return this.reviewsPerDay() > settings.maxLoad
+        ? settings.maxLoad
+        : this.reviewsPerDay();
+    },
+    speed: function () {
+      // returns a value between 0 and 30 representing the seconds per review
+      // capped at a value of 30 (for gauge display)
+      return this.secondsPerReview() > settings.maxSpeed
+        ? settings.maxSpeed
+        : this.secondsPerReview();
     },
   };
 
@@ -115,7 +127,7 @@ Click "OK" to be forwarded to installation instructions.`
     // each individual array contains:
     // [creationDate, subjectID, startingSRS, incorrectMeaning, incorrectReading]
     let allReviews = await review_cache.get_reviews();
-    let newReviews = filterRecent(allReviews, interval);
+    let newReviews = filterRecent(allReviews, settings.interval);
     // Save our first metric
     metrics.reviewed = newReviews.length;
     // Calculate and save our second set of metrics
@@ -144,9 +156,9 @@ Click "OK" to be forwarded to installation instructions.`
     metrics.newKanji = items.length;
 
     // Optionally log what we've extracted
-    if (debug) {
+    if (settings.debug) {
       console.log(
-        `${metrics.reviewed} reviews in ${interval} hours (${
+        `${metrics.reviewed} reviews in ${settings.interval} hours (${
           allReviews.length
         } total reviews)
 ${metrics.misses()} total misses
@@ -165,10 +177,9 @@ ${metrics.sessions.length} sessions:`
       console.log(
         `${metrics.apprentice} apprentice ${metrics.newKanji} newKanji`
       );
-      console.log(`${metrics.load()} reviews per day`);
-      console.log(`${metrics.speed()} seconds per review on average`);
-      console.log(`Difficulty: ${metrics.difficulty()} on a scale of 0 to 100`);
-      // debugger;
+      console.log(`${metrics.load()} reviews per day (0-300)`);
+      console.log(`${metrics.speed()} seconds per review (0-30)`);
+      console.log(`Difficulty: ${metrics.difficulty()} (0-100)`);
     }
   }
 
@@ -216,7 +227,7 @@ ${metrics.sessions.length} sessions:`
         withinSession(
           curSession.endTime, // prevTime
           review[0], // newTime
-          sessionIntervalMax // maxMinutes
+          settings.sessionIntervalMax // maxMinutes
         )
       ) {
         // Still within a session, so increment the length
