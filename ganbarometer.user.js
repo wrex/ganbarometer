@@ -194,9 +194,22 @@ section.ganbarometer {
     justify-content: space-evenly;
 }
 
-.ganbarometer h1, .ganbarometer p {
+.ganbarometer h1 {
     text-align: center;
     justify-content: center;
+    font-size: 2em;
+}
+
+.ganbarometer p {
+    text-align: center;
+    justify-content: center;
+    font-size: 1em;
+}
+
+.gbGaugeContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .gbGauge {
@@ -204,10 +217,10 @@ section.ganbarometer {
     background: var(--gauge-bg);
     border: 0.05em solid #222222;
     border-radius: 50%;
-    min-width: 150px;
-    min-height: 150px;
+    min-width: 75px;
+    min-height: 75px;
     font-weight: bold;
-    font-size: 20px;
+    font-size: 0.8em;
 }
 
 .gbGauge .ticks {
@@ -357,19 +370,18 @@ section.ganbarometer {
   }
 
   function renderDiv(title, value, displayValue, text) {
-    return `<div>
+    return `<div class="gbGaugeContainer">
     <h1>${title}</h1>
     <div id="demoGauge" class="gbGauge" style="
         --gauge-value:${value};
         --gauge-display-value:${displayValue};
-        width: 150px;
-        height: 150px;">
+        width: 75px;
+        height: 75px;">
 
         <div class="guide">
             <div class="guide-x"></div>
             <div class="guide-y"></div>
         </div>
-
         <div class="ticks">
             <div class="tithe" style="--gauge-tithe-tick:1;"></div>
             <div class="tithe" style="--gauge-tithe-tick:2;"></div>
