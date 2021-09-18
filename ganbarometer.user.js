@@ -190,19 +190,34 @@ ${metrics.sessions.length} sessions:`
   function updateDashboard(metrics, settings) {
     let css =
       "https://raw.githubusercontent.com/rotvalli/css-gauge/master/gauge.min.css";
-    let html = `<div>
-    <h1>Difficulty</h1>
+    let html =
+      renderDiv("Difficulty", 54, 54, "0 - 100") +
+      renderDiv("Load", Math.round(111 / 300), 111, "0 - 300") +
+      renderDiv("Speed", 48, 15, "0-30");
+
+    wkof.load_css(css, true /* use_cache */).then(() => {
+      // Create a section for our content
+      const gbSection = document.createElement("Section");
+      gbSection.classList.add(`${script_id}`);
+      gbSection.innerHTML = html;
+      // Now add our new section at the just before the forum list
+      document.querySelector(".progress-and-forecast").before(gbSection);
+    });
+  }
+
+  function renderDiv(title, value, displayValue, text) {
+    return `<div>
+    <h1>${title}</h1>
     <div id="demoGauge" class="gauge" style="
-        --gauge-value:50;
+        --gauge-value:${value};
+        --gauge-display-value:${displayValue};
         width:100px;
         height:100px;">
 
-        <!-- Layout testing guides
         <div class="guide">
             <div class="guide-x"></div>
             <div class="guide-y"></div>
         </div>
-        -->
 
         <div class="ticks">
             <div class="tithe" style="--gauge-tithe-tick:1;"></div>
@@ -226,16 +241,8 @@ ${metrics.sessions.length} sessions:`
             <div class="value-label"></div>
         </div>
     </div>
+    <p>${text}</p>
 </div>`;
-
-    wkof.load_css(css, true /* use_cache */).then(() => {
-      // Create a section for our content
-      const gbSection = document.createElement("Section");
-      gbSection.classList.add(`${script_id}`);
-      gbSection.innerHTML = html;
-      // Now add our new section at the just before the forum list
-      document.querySelector(".progress-and-forecast").before(gbSection);
-    });
   }
 
   // Function to return a filtered array of reviews
