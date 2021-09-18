@@ -334,6 +334,12 @@ ${metrics.sessions.length} sessions:`
       value / 2
     }turn)`;
     gauge.querySelector(".gauge__cover").textContent = display;
+
+    if (value >= 0.9) {
+      gauge.querySelector(".gauge__fill").style.backgroundColor = "#e50036";
+    } else if (value >= 0.8) {
+      gauge.querySelector(".gauge__fill").style.backgroundColor = "#ece619";
+    }
   }
 
   // Function to return a filtered array of reviews
