@@ -34,7 +34,8 @@
     debug: true, // display debug information
     interval: 27, // Number of hours to summarize reviews over
     sessionIntervalMax: 10, // max minutes between reviews in same session
-    newKanjiWeighting: 0.05, // weighting factor for new kanji (10items = 50% harder)
+    newKanjiWeighting: 1.2, // how much harder are new kanji than normal apprentice?
+    missesWeighting: 1.05, // how much harder are missed items
     normalApprenticeQty: 100, // normal number of items in apprentice queue
     maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
     maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
@@ -150,12 +151,13 @@ Click "OK" to be forwarded to installation instructions.`
       }
       return min;
     },
-    misses: function () {
+    missesPerDay: function () {
       // number of review items answered incorrectly over interval
       let s = 0;
       for (let sess of this.sessions) {
         s += sess.misses;
       }
+      s = (s * 24) / settings.interval;
       return s;
     },
     reviewsPerDay: function () {
@@ -169,10 +171,20 @@ Click "OK" to be forwarded to installation instructions.`
     difficulty: function () {
       // return a value from 0 to 1, with 0.5 representing "normal"
       // Normal = ~100 items in Apprentice bucket (stages 1-4)
-      // but kanji in stages 1 and 2 are more difficult
-      // so weight them heavily (10 such items make it 50% more difficult)
-      let weighting = 1 + this.newKanji * settings.newKanjiWeighting;
-      let raw = this.apprentice / (2 * settings.normalApprenticeQty);
+      let raw =
+        (this.apprentice - this.newKanji - this.missesPerDay()) /
+        (2 * settings.normalApprenticeQty);
+
+      // Heuristic 1: new kanji are harder than other apprentice items
+      raw +=
+        (this.newKanji * settings.newKanjiWeighting) /
+        (2 * settings.normalApprenticeQty);
+
+      // Heuristic 2: missed items are harder than other apprentice items
+      raw +=
+        (this.missesPerDay() * settings.missesWeighting) /
+        (2 * settings.normalApprenticeQty);
+
       return raw > 1 ? 1 : raw;
     },
     load: function () {
@@ -232,7 +244,7 @@ Click "OK" to be forwarded to installation instructions.`
         `${metrics.reviewed} reviews in ${settings.interval} hours (${
           allReviews.length
         } total reviews)
-${metrics.misses()} total misses
+${Math.round(10 * metrics.missesPerDay()) / 10} misses per day
 ${metrics.minutes()} total minutes
 ${metrics.sessions.length} sessions:`
       );
