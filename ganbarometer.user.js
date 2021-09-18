@@ -34,9 +34,12 @@
     debug: true, // display debug information
     interval: 27, // Number of hours to summarize reviews over
     sessionIntervalMax: 10, // max minutes between reviews in same session
-    newKanjiWeighting: 1.2, // how much harder are new kanji than normal apprentice?
-    missesWeighting: 1.05, // how much harder are missed items
     normalApprenticeQty: 100, // normal number of items in apprentice queue
+    //
+    // How much more difficult are weighted items?
+    newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
+    normalMisses: 0.2, // no additional weighting for up to 20% of daily reviews
+    extraMissesWeighting: 0.05, // 0.03 => 10 extra misses make it 30% harder
     maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
     maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
     backgroundColor: "#f4f4f4", // section bacground color
@@ -171,19 +174,22 @@ Click "OK" to be forwarded to installation instructions.`
     difficulty: function () {
       // return a value from 0 to 1, with 0.5 representing "normal"
       // Normal = ~100 items in Apprentice bucket (stages 1-4)
-      let raw =
-        (this.apprentice - this.newKanji - this.missesPerDay()) /
-        (2 * settings.normalApprenticeQty);
+      let raw = this.apprentice / (2 * settings.normalApprenticeQty);
 
       // Heuristic 1: new kanji are harder than other apprentice items
-      raw +=
-        (this.newKanji * settings.newKanjiWeighting) /
-        (2 * settings.normalApprenticeQty);
+      // raw +=
+      //   (this.newKanji * settings.newKanjiWeighting) /
+      //   (2 * settings.normalApprenticeQty);
+      raw = raw * (1 + this.newKanji * settings.newKanjiWeighting);
 
       // Heuristic 2: missed items are harder than other apprentice items
-      raw +=
-        (this.missesPerDay() * settings.missesWeighting) /
-        (2 * settings.normalApprenticeQty);
+      let allowedMisses = Math.round(
+        settings.normalMisses * this.reviewsPerDay
+      );
+      let extraMisses = this.missesPerDay - allowedMisses;
+      if (extraMisses > 0) {
+        raw = raw * (1 + extraMisses * settings.missesWeighting);
+      }
 
       return raw > 1 ? 1 : raw;
     },
