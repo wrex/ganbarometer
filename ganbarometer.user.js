@@ -31,18 +31,93 @@
    */
 
   const settings = {
-    debug: true,
+    debug: true, // display debug information
     interval: 27, // Number of hours to summarize reviews over
     sessionIntervalMax: 10, // max minutes between reviews in same session
     newKanjiWeighting: 0.05, // weighting factor for new kanji (10items = 50% harder)
     normalApprenticeQty: 100, // normal number of items in apprentice queue
     maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
     maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
+    backgroundColor: "#f4f4f4", // section bacground color
   };
 
   // This script identifiers for caches, etc.
   const script_id = "ganbarometer";
   const script_name = "Ganbarometer";
+
+  const css = `
+.${script_id} {
+  display:flex;
+  justify-content: space-around;
+  background-color: ${settings.backgroundColor};
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.${script_id} h1 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.${script_id} p {
+  font-size: 10px;
+  margin: 0;
+}
+
+.gauge {
+  width: 100%;
+  min-width: 70px;
+  max-width: 150px;
+  padding: 0 10px;
+  color: #004033;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: ${settings.backgroundColor};
+}
+
+.gauge__body {
+  width: 100%;
+  height: 0;
+  padding-bottom: 50%;
+  background: #b4c0be;
+  position: relative;
+  border-top-left-radius: 100% 200%;
+  border-top-right-radius: 100% 200%;
+  overflow: hidden;
+}
+
+.gauge__fill {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: inherit;
+  height: 100%;
+  background: #59c273;
+  transform-origin: center top;
+  transform: rotate(0.25turn);
+  transition: transform 0.2s ease-out;
+}
+
+.gauge__cover {
+  width: 75%;
+  height: 150%;
+  background: #f4f4f4;
+  border-radius: 50%;
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* Text */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 25%;
+  box-sizing: border-box;
+}
+    `;
 
   // Ensure WKOF is installed
   if (!wkof) {
@@ -92,29 +167,25 @@ Click "OK" to be forwarded to installation instructions.`
       return Math.round((60 * this.minutes()) / this.reviewed);
     },
     difficulty: function () {
-      // return a value from 0 to 100, with 50 representing "normal"
-      // Normal = 100 items in Apprentice bucket (stages 1-4)
+      // return a value from 0 to 1, with 0.5 representing "normal"
+      // Normal = ~100 items in Apprentice bucket (stages 1-4)
       // but kanji in stages 1 and 2 are more difficult
       // so weight them heavily (10 such items make it 50% more difficult)
       let weighting = 1 + this.newKanji * settings.newKanjiWeighting;
-      let raw = Math.round(
-        (this.apprentice / settings.normalApprenticeQty) * 50 * weighting
-      );
-      return raw > 100 ? 100 : raw;
+      let raw = this.apprentice / (2 * settings.normalApprenticeQty);
+      return raw > 1 ? 1 : raw;
     },
     load: function () {
-      // returns a value betweeen 0 and 300 representing the number of reviews
-      // per day capped at a value of 300 (for gauge display)
-      return this.reviewsPerDay() > settings.maxLoad
-        ? settings.maxLoad
-        : this.reviewsPerDay();
+      // returns a value betweeen 0 and 1 representing the percentage of reviews
+      // per day relative to maxLoad
+      let raw = this.reviewsPerDay() / settings.maxLoad;
+      return raw > 1 ? 1 : raw;
     },
     speed: function () {
-      // returns a value between 0 and 30 representing the seconds per review
-      // capped at a value of 30 (for gauge display)
-      return this.secondsPerReview() > settings.maxSpeed
-        ? settings.maxSpeed
-        : this.secondsPerReview();
+      // returns a value between 0 and 1 representing the percentage of seconds
+      // per review relative to maxSpeed
+      let raw = this.secondsPerReview() / settings.maxSpeed;
+      return raw > 1 ? 1 : raw;
     },
   };
 
@@ -177,9 +248,11 @@ ${metrics.sessions.length} sessions:`
       console.log(
         `${metrics.apprentice} apprentice ${metrics.newKanji} newKanji`
       );
-      console.log(`${metrics.load()} reviews per day (0-300)`);
-      console.log(`${metrics.speed()} seconds per review (0-30)`);
-      console.log(`Difficulty: ${metrics.difficulty()} (0-100)`);
+      console.log(`Difficulty: ${metrics.difficulty()} (0-1)`);
+      console.log(`${metrics.reviewsPerDay()} reviews per day (0-300)`);
+      console.log(`${metrics.secondsPerReview()} seconds per review (0-30)`);
+      console.log(`load: ${metrics.load()}`);
+      console.log(`speed: ${metrics.speed()}`);
     }
 
     // Now populate the section and add it to the dashboard
@@ -188,79 +261,6 @@ ${metrics.sessions.length} sessions:`
 
   // Create an html <section> for our metrics and add to dashboard
   function updateDashboard(metrics, settings) {
-    let css = `
-    .${script_id} {
-      display:flex;
-      justify-content: space-around;
-      background-color: #f4f4f4;
-      border-radius: 5px;
-      overflow: hidden;
-    }
-
-    .${script_id} h1 {
-      font-size: 18px;
-      margin: 0;
-    }
-
-    .${script_id} p {
-      font-size: 10px;
-      margin: 0;
-    }
-
-    .gauge {
-      width: 100%;
-      min-width: 70px;
-      max-width: 150px;
-      padding: 0 10px;
-      color: #004033;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background-color: #f4f4f4;
-    }
-
-    .gauge__body {
-      width: 100%;
-      height: 0;
-      padding-bottom: 50%;
-      background: #b4c0be;
-      position: relative;
-      border-top-left-radius: 100% 200%;
-      border-top-right-radius: 100% 200%;
-      overflow: hidden;
-    }
-
-    .gauge__fill {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      width: inherit;
-      height: 100%;
-      background: #009578;
-      transform-origin: center top;
-      transform: rotate(0.25turn);
-      transition: transform 0.2s ease-out;
-    }
-
-    .gauge__cover {
-      width: 75%;
-      height: 150%;
-      background: #f4f4f4;
-      border-radius: 50%;
-      position: absolute;
-      top: 25%;
-      left: 50%;
-      transform: translateX(-50%);
-
-      /* Text */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding-bottom: 25%;
-      box-sizing: border-box;
-    }
-      `;
-
     // Append our styling to the head of the doucment
     const gbStyle = document.createElement("style");
     gbStyle.id = script_id + "CSS";
@@ -268,9 +268,13 @@ ${metrics.sessions.length} sessions:`
     document.querySelector("head").append(gbStyle);
 
     let html =
-      renderDiv("gbDifficulty", "Difficulty", "0 - 100") +
-      renderDiv("gbLoad", "Load", "0 - 300") +
-      renderDiv("gbSpeed", "Speed", "0-30");
+      renderDiv(
+        "gbDifficulty",
+        "Difficulty",
+        `${metrics.apprentice} (${metrics.newKanji})`
+      ) +
+      renderDiv("gbLoad", "Load", "reviews/day") +
+      renderDiv("gbSpeed", "Speed", "sec/review");
 
     // Create a section for our content
     const gbSection = document.createElement("Section");
@@ -278,13 +282,13 @@ ${metrics.sessions.length} sessions:`
     gbSection.innerHTML = html;
 
     let gauge = gbSection.querySelector("#gbDifficulty");
-    setGaugeValue(gauge, 0.3);
+    setGaugeValue(gauge, metrics.difficulty());
 
     gauge = gbSection.querySelector("#gbLoad");
-    setGaugeValue(gauge, 0.4, "143");
+    setGaugeValue(gauge, metrics.load(), `${metrics.reviewsPerDay()}`);
 
     gauge = gbSection.querySelector("#gbSpeed");
-    setGaugeValue(gauge, 0.5);
+    setGaugeValue(gauge, metrics.speed(), `${metrics.secondsPerReview()}`);
 
     // Now add our new section at the just before the forum list
     document.querySelector(".progress-and-forecast").before(gbSection);
