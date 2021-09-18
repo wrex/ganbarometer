@@ -32,7 +32,7 @@
 
   const settings = {
     debug: true, // display debug information
-    interval: 27, // Number of hours to summarize reviews over
+    interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 10, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
     //
@@ -246,35 +246,43 @@ Click "OK" to be forwarded to installation instructions.`
 
     // Optionally log what we've extracted
     if (settings.debug) {
-      console.log(
-        `${metrics.reviewed} reviews in ${settings.interval} hours (${
-          allReviews.length
-        } total reviews)
-${Math.round(10 * metrics.missesPerDay()) / 10} misses per day
-${metrics.minutes()} total minutes
-${metrics.sessions.length} sessions:`
-      );
-      metrics.sessions.forEach((s) => {
-        console.log(
-          `     - Start: ${s.startTime}
-       End: ${s.endTime}
-       Misses: ${s.misses}
-       Reviews: ${s.len}
-       Review minutes: ${s.minutes()}`
-        );
-      });
-      console.log(
-        `${metrics.apprentice} apprentice ${metrics.newKanji} newKanji`
-      );
-      console.log(`Difficulty: ${metrics.difficulty()} (0-1)`);
-      console.log(`${metrics.reviewsPerDay()} reviews per day (0-300)`);
-      console.log(`${metrics.secondsPerReview()} seconds per review (0-30)`);
-      console.log(`load: ${metrics.load()}`);
-      console.log(`speed: ${metrics.speed()}`);
+      logMetrics(metrics);
     }
 
     // Now populate the section and add it to the dashboard
     updateDashboard(metrics, settings);
+  }
+
+  function logMetrics(metrics) {
+    console.log(
+      `${metrics.reviewed} reviews in ${settings.interval} hours
+${Math.round(10 * metrics.missesPerDay()) / 10} misses per day
+${metrics.minutes()} total minutes
+${metrics.sessions.length} sessions:`
+    );
+    metrics.sessions.forEach((s) => {
+      console.log(
+        `     - Start: ${s.startTime}
+       End: ${s.endTime}
+       Misses: ${s.misses}
+       Reviews: ${s.len}
+       Review minutes: ${s.minutes()}`
+      );
+    });
+    console.log(
+      `${metrics.apprentice} apprentice ${metrics.newKanji} newKanji`
+    );
+    console.log(
+      `${metrics.reviewsPerDay()} reviews per day (0 - ${settings.maxLoad}`
+    );
+    console.log(
+      `${metrics.secondsPerReview()} seconds per review (0 - ${
+        settings.maxSpeed
+      })`
+    );
+    console.log(`Difficulty: ${metrics.difficulty()} (0-1)`);
+    console.log(`Load: ${metrics.load()}`);
+    console.log(`Speed: ${metrics.speed()}`);
   }
 
   // Create an html <section> for our metrics and add to dashboard
