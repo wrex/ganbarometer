@@ -215,13 +215,25 @@ Click "OK" to be forwarded to installation instructions.`
     // get_reviews() returns an Array of "reviews" (each review is an Array)
     // each individual array contains:
     // [creationDate, subjectID, startingSRS, incorrectMeaning, incorrectReading]
-    let allReviews = await review_cache.get_reviews();
-    let newReviews = filterRecent(allReviews, settings.interval);
+    //let allReviews = await review_cache.get_reviews();
+    //let newReviews = filterRecent(allReviews, settings.interval);
+
+    // wkof version
+    let firstReviewDate = new Date(
+      new Date().getTime() - settings.interval * 60 * 60 * 1000
+    );
+    let options = {
+      last_update: firstReviewDate.toString(),
+    };
+
+    let reviewCollection = await wkof.Apiv2.fetch_endpoint("reviews", options);
+    let newWkofReviews = reviewCollection.data;
+
     // Save our first metric
-    metrics.reviewed = newReviews.length;
+    metrics.reviewed = newWkofReviews.length;
     // Calculate and save our second set of metrics
     // findSessions() returns an Array of Session objects
-    metrics.sessions = findSessions(newReviews);
+    metrics.sessions = findWkofSessions(newWkofReviews);
 
     // Finally, retrieve and save the apprentice and newKanji metrics
     let config = {
@@ -371,6 +383,63 @@ ${metrics.sessions.length} sessions:`
       // number of minutes spent reviewing in this session
       return Math.round((this.endTime - this.startTime) / (1000 * 60));
     };
+  }
+
+  function findWkofSessions(reviews) {
+    // Start with an empty array of sessions
+    let sessions = [];
+    // Get the time of the first review
+    let firstTime =
+      reviews.length > 0 ? new Date(reviews[0].data_updated_at) : new Date(0);
+
+    // Initialize what will become sessions[0]
+    let curSession = new Session(
+      0, // firstIndex - start with reviews[0]
+      0, // length (currently unknown, initialize to zero)
+      firstTime, // startTime is time of first review
+      firstTime, // endTime (currently unknown, initialize to startTime)
+      0 // misses (currently unknown, initialize to zero)
+    );
+
+    // Now iterate through reviews to find sessions
+    // note that reviews[0] is guaranteed to be within the current session!
+    reviews.forEach((review) => {
+      if (
+        withinSession(
+          curSession.endTime, // prevTime
+          new Date(review.data_updated_at).getTime(), // newTime
+          settings.sessionIntervalMax // maxMinutes
+        )
+      ) {
+        // Still within a session, so increment the length
+        curSession.len += 1;
+        // "miss" means one or more incorrect meaning or reading answers
+        curSession.misses +=
+          review.data.incorrect_meaning_answers +
+            review.data.incorrect_reading_answers >
+          0
+            ? 1
+            : 0;
+        // Update endTime the the time of this review
+        curSession.endTime = new Date(review.data_updated_at);
+      } else {
+        // Finished prior session and starting a new one
+        sessions.push(curSession);
+        // And create a new curSession of length 1 for this review
+        let newIndex = curSession.firstIndex + curSession.len;
+        let newDate = new Date(review.data_updated_at);
+        let curMisses =
+          review.incorrect_meaning_answers +
+            review.data.incorrect_reading_answers >
+          0
+            ? 1
+            : 0;
+        curSession = new Session(newIndex, 1, newDate, newDate, curMisses);
+      }
+    });
+    // Don't forget the last session when we fall out of the loop
+    sessions.push(curSession);
+    return sessions;
   }
 
   // Find sequences of reviews no more than sessionIntervalMax apart
