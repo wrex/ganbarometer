@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  Add Pace and Difficulty gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -371,7 +371,8 @@ Click "OK" to be forwarded to installation instructions.`
 
   function logMetrics(metrics) {
     console.log(
-      `${metrics.reviewed} reviews in ${settings.interval} hours
+      `------ GanbarOmeter debug output ------
+${metrics.reviewed} reviews in ${settings.interval} hours
 ${Math.round(10 * metrics.missesPerDay()) / 10} misses per day
 ${metrics.minutes()} total minutes
 ${metrics.sessions.length} sessions:`
@@ -399,6 +400,7 @@ ${metrics.sessions.length} sessions:`
     console.log(`Difficulty: ${metrics.difficulty()} (0-1)`);
     console.log(`Load: ${metrics.load()}`);
     console.log(`Speed: ${metrics.speed()}`);
+    console.log(`------ End GanbarOmeter ------`);
   }
 
   // Create an html <section> for our metrics and add to dashboard
