@@ -14,13 +14,109 @@
 (function (wkof) {
   "use strict";
 
+  // This script identifiers for caches, etc.
+  const script_id = "ganbarometer";
+  const script_name = "Ganbarometer";
+
+  // Ensure WKOF is installed
+  if (!wkof) {
+    let response = confirm(
+      `${script_name} requires WaniKani Open Framework.
+Click "OK" to be forwarded to installation instructions.`
+    );
+    if (response) {
+      window.location.href =
+        "https://community.wanikani.com/t/instructions-installing-wanikani-open-framework/28549";
+      return;
+    }
+  }
+
+  // Wait until modules are ready then initiate script
+  wkof.include("ItemData, Apiv2, Menu, Settings");
+  wkof
+    .ready("ItemData, Apiv2, Menu, Settings")
+    .then(loadSettings)
+    .then(updateSettings)
+    .then(installMenu)
+    .then(loadCSS)
+    .then(render);
+
+  // Install our link under [Scripts -> Demo -> Settings Demo]
+  function installMenu() {
+    wkof.Menu.insert_script_link({
+      name: script_name,
+      submenu: "Settings",
+      title: "GanbarOmeter",
+      on_click: openSettings,
+    });
+  }
+
+  const settings = {};
+
+  let defaults = {
+    debug: false, // display debug information
+    interval: 72, // Number of hours to summarize reviews over
+    sessionIntervalMax: 10, // max minutes between reviews in same session
+    normalApprenticeQty: 100, // normal number of items in apprentice queue
+    //
+    // How much more difficult are weighted items?
+    newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
+    normalMisses: 0.2, // no additional weighting for up to 20% of daily reviews
+    extraMissesWeighting: 0.05, // 0.03 => 10 extra misses make it 30% harder
+    maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
+    maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
+    backgroundColor: "#f4f4f4", // section background color
+  };
+
+  function loadSettings() {
+    return wkof.Settings.load(script_id, defaults);
+  }
+
+  function openSettings() {
+    let config = {
+      script_id: script_id,
+      title: script_name,
+      on_save: updateSettings,
+      content: {
+        debug: {
+          type: "checkbox",
+          label: "Debug",
+          default: defaults.debug,
+          hover_tip: "Display debug info in console?",
+        },
+        interval: {
+          type: "number",
+          label: "Interval",
+          default: defaults.interval,
+          hover_tip: "Number of hours to summarize reviews over",
+        },
+      },
+    };
+    let dialog = new wkof.Settings(config);
+    dialog.open();
+  }
+
+  function updateSettings() {
+    settings.debug = wkof.settings.ganbarometer.debug;
+    settings.interval = wkof.settings.ganbarometer.interval;
+    settings.sessionIntervalMax = wkof.settings.ganbarometer.sessionIntervalMax;
+    settings.normalApprenticeQty =
+      wkof.settings.ganbarometer.normalApprenticeQty;
+    settings.newKanjiWeighting = wkof.settings.ganbarometer.newKanjiWeighting;
+    settings.normalMisses = wkof.settings.ganbarometer.normalMisses;
+    settings.extraMissesWeighting =
+      wkof.settings.ganbarometer.extraMissesWeighting;
+    settings.maxLoad = wkof.settings.ganbarometer.maxLoad;
+    settings.maxSpeed = wkof.settings.ganbarometer.maxSpeed;
+    settings.backgroundColor = wkof.settings.ganbarometer.backgroundColor;
+    wkof.Settings.save(script_id);
+  }
+
   /*
-   * * * * User Modifiable Constants * * *
-   */
 
   const settings = {
-    debug: true, // display debug information
-    interval: 72, // Number of hours to summarize reviews over
+    debug: wkof.settings.ganbarometer.debug,
+    interval: wkof.settings.ganbarometer.interval,
     sessionIntervalMax: 10, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
     //
@@ -32,12 +128,12 @@
     maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
     backgroundColor: "#f4f4f4", // section bacground color
   };
+  */
 
-  // This script identifiers for caches, etc.
-  const script_id = "ganbarometer";
-  const script_name = "Ganbarometer";
+  let css = "";
 
-  const css = `
+  function loadCSS() {
+    css = `
 .${script_id} {
   display:flex;
   justify-content: space-around;
@@ -105,7 +201,7 @@
 .gauge__cover {
   width: 75%;
   height: 150%;
-  background: #f4f4f4;
+  background-color: ${settings.backgroundColor};
   border-radius: 50%;
   position: absolute;
   top: 25%;
@@ -120,23 +216,7 @@
   box-sizing: border-box;
 }
     `;
-
-  // Ensure WKOF is installed
-  if (!wkof) {
-    let response = confirm(
-      `${script_name} requires WaniKani Open Framework.
-Click "OK" to be forwarded to installation instructions.`
-    );
-    if (response) {
-      window.location.href =
-        "https://community.wanikani.com/t/instructions-installing-wanikani-open-framework/28549";
-      return;
-    }
   }
-
-  // Wait until modules are ready then initiate script
-  wkof.include("ItemData, Apiv2");
-  wkof.ready("ItemData, Apiv2").then(render);
 
   // The metrics we want to retrieve and display
   const metrics = {
@@ -186,7 +266,7 @@ Click "OK" to be forwarded to installation instructions.`
       );
       let extraMisses = this.missesPerDay - allowedMisses;
       if (extraMisses > 0) {
-        raw = raw * (1 + extraMisses * settings.missesWeighting);
+        raw = raw * (1 + extraMisses * settings.extraMissesWeighting);
       }
 
       return raw > 1 ? 1 : raw;
@@ -298,7 +378,7 @@ ${metrics.sessions.length} sessions:`
     document.querySelector("head").append(gbStyle);
 
     let html =
-      `<label>Averages over ${settings.interval} hours</label>` +
+      `<label>Daily averages for the past ${settings.interval} hours</label>` +
       renderDiv(
         "gbDifficulty",
         "Difficulty",
