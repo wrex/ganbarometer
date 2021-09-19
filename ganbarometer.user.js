@@ -489,7 +489,7 @@ ${metrics.sessions.length} sessions:`
       let raw =
         endTime - startTime < settings.maxSpeed * 100
           ? Math.round((this.endTime - this.startTime) / (1000 * 60))
-          : settings.maxSpeed / 60 / 2; // assume single review session speed is typical
+          : settings.maxSpeed / 2; // assume single review session speed is typical
       return raw;
     };
   }
