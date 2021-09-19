@@ -44,6 +44,7 @@
   background-color: ${settings.backgroundColor};
   border-radius: 5px;
   overflow: hidden;
+  flex-wrap: wrap;
 }
 
 .${script_id} h1 {
@@ -57,9 +58,18 @@
   margin: 0;
 }
 
+.${script_id} label {
+  margin: 0;
+  text-align: center;
+  width: 100%;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #bbb;
+}
+
 .gauge {
   width: 100%;
-  min-width: 60px;
+  min-width: 70px;
   max-width: 150px;
   padding: 0 10px;
   color: #004033;
@@ -288,6 +298,7 @@ ${metrics.sessions.length} sessions:`
     document.querySelector("head").append(gbStyle);
 
     let html =
+      `<label>Averages over ${settings.interval} hours</label>` +
       renderDiv(
         "gbDifficulty",
         "Difficulty",
