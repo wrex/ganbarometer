@@ -58,11 +58,9 @@ Click "OK" to be forwarded to installation instructions.`
     interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 10, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
-    //
-    // How much more difficult are weighted items?
     newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
-    normalMisses: 0.2, // no additional weighting for up to 20% of daily reviews
-    extraMissesWeighting: 0.05, // 0.03 => 10 extra misses make it 30% harder
+    normalMisses: 20, // no additional weighting for up to 20% of daily reviews
+    extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
     maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
     maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
     backgroundColor: "#f4f4f4", // section background color
@@ -78,17 +76,68 @@ Click "OK" to be forwarded to installation instructions.`
       title: script_name,
       on_save: updateSettings,
       content: {
+        interval: {
+          type: "number",
+          label: "Running Average Hours",
+          default: defaults.interval,
+          hover_tip: "Number of hours to summarize reviews over",
+        },
+        sessionIntervalMax: {
+          type: "number",
+          label: "Session interval",
+          default: defaults.sessionIntervalMax,
+          hover_tip: "Max minutes between reviews in a single session",
+        },
+        normalApprenticeQty: {
+          type: "number",
+          label: "Desired apprentice quantity",
+          default: defaults.normalApprenticeQty,
+          hover_tip: "Number of desired items in the Apprentice bucket",
+        },
+        newKanjiWeighting: {
+          type: "number",
+          label: "New kanji weighting factor",
+          default: defaults.newKanjiWeighting,
+          hover_tip:
+            "A value of 0.05 means 10 kanji in stages 1 & 2 imply 50% higher difficulty",
+        },
+        normalMisses: {
+          type: "number",
+          label: "Typical percentage of items missed during reviews",
+          default: defaults.normalMisses,
+          hover_tip:
+            "Only misses beyond this percentage are weighted more heavily",
+        },
+        extraMissesWeighting: {
+          type: "number",
+          label: "Extra misses weighting",
+          default: defaults.extraMissesWeighting,
+          hover_tip:
+            "A value of 0.03 means extra misses imply 30% higher difficulty",
+        },
+        maxLoad: {
+          type: "number",
+          label: "Maximum reviews per day",
+          default: defaults.maxLoad,
+          hover_tip: "This should be 2X the typical number of reviews/day",
+        },
+        maxSpeed: {
+          type: "number",
+          label: "Maximum number of seconds per review",
+          default: defaults.maxSpeed,
+          hover_tip: "This should be 2x the typical number of seconds/review",
+        },
+        backgroundColor: {
+          type: "color",
+          label: "Background color",
+          default: defaults.backgroundColor,
+          hover_tip: "Background color for theming",
+        },
         debug: {
           type: "checkbox",
           label: "Debug",
           default: defaults.debug,
-          hover_tip: "Display debug info in console?",
-        },
-        interval: {
-          type: "number",
-          label: "Interval",
-          default: defaults.interval,
-          hover_tip: "Number of hours to summarize reviews over",
+          hover_tip: "Display debug info on console?",
         },
       },
     };
@@ -103,7 +152,7 @@ Click "OK" to be forwarded to installation instructions.`
     settings.normalApprenticeQty =
       wkof.settings.ganbarometer.normalApprenticeQty;
     settings.newKanjiWeighting = wkof.settings.ganbarometer.newKanjiWeighting;
-    settings.normalMisses = wkof.settings.ganbarometer.normalMisses;
+    settings.normalMisses = wkof.settings.ganbarometer.normalMisses / 100;
     settings.extraMissesWeighting =
       wkof.settings.ganbarometer.extraMissesWeighting;
     settings.maxLoad = wkof.settings.ganbarometer.maxLoad;
@@ -111,24 +160,6 @@ Click "OK" to be forwarded to installation instructions.`
     settings.backgroundColor = wkof.settings.ganbarometer.backgroundColor;
     wkof.Settings.save(script_id);
   }
-
-  /*
-
-  const settings = {
-    debug: wkof.settings.ganbarometer.debug,
-    interval: wkof.settings.ganbarometer.interval,
-    sessionIntervalMax: 10, // max minutes between reviews in same session
-    normalApprenticeQty: 100, // normal number of items in apprentice queue
-    //
-    // How much more difficult are weighted items?
-    newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
-    normalMisses: 0.2, // no additional weighting for up to 20% of daily reviews
-    extraMissesWeighting: 0.05, // 0.03 => 10 extra misses make it 30% harder
-    maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
-    maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
-    backgroundColor: "#f4f4f4", // section bacground color
-  };
-  */
 
   let css = "";
 
@@ -165,7 +196,7 @@ Click "OK" to be forwarded to installation instructions.`
 
 .gauge {
   width: 100%;
-  min-width: 70px;
+  min-width: 120px;
   max-width: 150px;
   padding: 0 10px;
   color: #004033;
@@ -214,16 +245,17 @@ Click "OK" to be forwarded to installation instructions.`
   justify-content: center;
   padding-bottom: 25%;
   box-sizing: border-box;
+  font-size: 25px;
 }
     `;
   }
 
   // The metrics we want to retrieve and display
   const metrics = {
-    reviewed: 0, // TBD: total number of items reviewed over interval
-    sessions: [], // TBD: array of Session objects
-    apprentice: 0, // TBD: total number of items currently in Apprentice (stages 1-4)
-    newKanji: 0, // TBD: total number of radicals & kanji in stages 1 or 2
+    reviewed: 0, // total number of items reviewed over interval
+    sessions: [], // array of Session objects
+    apprentice: 0, // total number of items currently in Apprentice (stages 1-4)
+    newKanji: 0, // total number of radicals & kanji in stages 1 or 2
     minutes: function () {
       // total number of minutes spent reviewing over interval
       let min = 0;
