@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  Add Pace and Difficulty gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -113,7 +113,7 @@ Click "OK" to be forwarded to installation instructions.`
           label: "Extra misses weighting",
           default: defaults.extraMissesWeighting,
           hover_tip:
-            "A value of 0.03 means extra misses imply 30% higher difficulty",
+            "A value of 0.03 means 10 extra misses imply 30% higher difficulty",
         },
         maxLoad: {
           type: "number",
@@ -372,6 +372,16 @@ Click "OK" to be forwarded to installation instructions.`
   function logMetrics(metrics) {
     console.log(
       `------ GanbarOmeter debug output ------
+settings:
+  - interval: ${settings.interval}
+  - sessionIntervalMax: ${settings.sessionIntervalMax}
+  - normalApprenticeQty: ${settings.normalApprenticeQty}
+  - newKanjiWeighting: ${settings.newKanjiWeighting}
+  - normalMisses: ${settings.normalMisses}
+  - extraMissesWeighting: ${settings.extraMissesWeighting}
+  - maxLoad: ${settings.maxLoad}
+  - maxSpeed: ${settings.maxSpeed}
+  - backgroundColor: ${settings.backgroundColor}
 ${metrics.reviewed} reviews in ${settings.interval} hours
 ${Math.round(10 * metrics.missesPerDay()) / 10} misses per day
 ${metrics.minutes()} total minutes
