@@ -10,20 +10,8 @@
 // @require      https://greasyfork.org/scripts/410909-wanikani-review-cache/code/Wanikani:%20Review%20Cache.js
 // @grant        none
 // ==/UserScript==
-//
-// Note: This script uses the cache from Kumirei's Review Cache:
-// https://community.wanikani.com/t/userscript-review-cache/46162
-//
-// Since this script only needs a few days of reviews, I could have eliminated
-// a dependency and allowed the script to load much faster by using
-// wkof.Apiv2.fetch_endpoint() instead of get_reviews(), but I figured many
-// users of this script will also install Kumire's wonderful Heatmap script
-// (https://community.wanikani.com/t/userscript-wanikani-heatmap/34947).
-// So I thought it made sense to share the same cache.
-//
-// I may revisit this decision in a future version, though.
 
-(function (wkof, review_cache) {
+(function (wkof) {
   "use strict";
 
   /*
@@ -71,7 +59,7 @@
 
 .gauge {
   width: 100%;
-  min-width: 70px;
+  min-width: 60px;
   max-width: 150px;
   padding: 0 10px;
   color: #004033;
@@ -211,14 +199,7 @@ Click "OK" to be forwarded to installation instructions.`
    * ********* MAIN function to calculate and display metrics ********
    */
   async function render(itemData, apiv2) {
-    // Get all reviews, then filter out all but the most recent
-    // get_reviews() returns an Array of "reviews" (each review is an Array)
-    // each individual array contains:
-    // [creationDate, subjectID, startingSRS, incorrectMeaning, incorrectReading]
-    //let allReviews = await review_cache.get_reviews();
-    //let newReviews = filterRecent(allReviews, settings.interval);
-
-    // wkof version
+    // Get all reviews within interval hours of now
     let firstReviewDate = new Date(
       new Date().getTime() - settings.interval * 60 * 60 * 1000
     );
@@ -227,13 +208,14 @@ Click "OK" to be forwarded to installation instructions.`
     };
 
     let reviewCollection = await wkof.Apiv2.fetch_endpoint("reviews", options);
-    let newWkofReviews = reviewCollection.data;
+    let newReviews = reviewCollection.data;
 
     // Save our first metric
-    metrics.reviewed = newWkofReviews.length;
+    metrics.reviewed = newReviews.length;
+
     // Calculate and save our second set of metrics
     // findSessions() returns an Array of Session objects
-    metrics.sessions = findWkofSessions(newWkofReviews);
+    metrics.sessions = findSessions(newReviews);
 
     // Finally, retrieve and save the apprentice and newKanji metrics
     let config = {
@@ -385,7 +367,7 @@ ${metrics.sessions.length} sessions:`
     };
   }
 
-  function findWkofSessions(reviews) {
+  function findSessions(reviews) {
     // Start with an empty array of sessions
     let sessions = [];
     // Get the time of the first review
@@ -442,54 +424,9 @@ ${metrics.sessions.length} sessions:`
     return sessions;
   }
 
-  // Find sequences of reviews no more than sessionIntervalMax apart
-  function findSessions(reviews) {
-    // Start with an empty array of sessions
-    let sessions = [];
-    // Get the time of the first review
-    let firstTime = reviews.length > 0 ? new Date(reviews[0][0]) : new Date(0);
-    // Initialize what will become sessions[0]
-    let curSession = new Session(
-      0, // firstIndex - start with reviews[0]
-      0, // length (currently unknown, initialize to zero)
-      firstTime, // startTime is time of first review
-      firstTime, // endTime (currently unknown, initialize to startTime)
-      0 // misses (currently unknown, initialize to zero)
-    );
-    // Now iterate through reviews to find sessions
-    // note that reviews[0] is guaranteed to be within the current session!
-    reviews.forEach((review) => {
-      if (
-        withinSession(
-          curSession.endTime, // prevTime
-          review[0], // newTime
-          settings.sessionIntervalMax // maxMinutes
-        )
-      ) {
-        // Still within a session, so increment the length
-        curSession.len += 1;
-        // "miss" means one or more incorrect meaning or reading answers
-        curSession.misses += review[3] + review[4] > 0 ? 1 : 0;
-        // Update endTime the the time of this review
-        curSession.endTime = new Date(review[0]);
-      } else {
-        // Finished prior session and starting a new one
-        sessions.push(curSession);
-        // And create a new curSession of length 1 for this review
-        let newIndex = curSession.firstIndex + curSession.len;
-        let newDate = new Date(review[0]);
-        let curMisses = review[3] + review[4] > 0 ? 1 : 0;
-        curSession = new Session(newIndex, 1, newDate, newDate, curMisses);
-      }
-    });
-    // Don't forget the last session when we fall out of the loop
-    sessions.push(curSession);
-    return sessions;
-  }
-
   // Determine if newTime is within maxMinutes of prevTime
   function withinSession(prevTime, newTime, maxMinutes) {
     let timeDifference = newTime - prevTime;
     return timeDifference <= maxMinutes * 1000 * 60 * 60;
   }
-})(window.wkof, window.review_cache);
+})(window.wkof);
