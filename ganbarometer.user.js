@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Add Pace and Difficulty gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -54,7 +54,7 @@ Click "OK" to be forwarded to installation instructions.`
   const settings = {};
 
   let defaults = {
-    debug: false, // display debug information
+    debug: true, // display debug information
     interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 10, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
@@ -486,7 +486,11 @@ ${metrics.sessions.length} sessions:`
     this.misses = misses; // "miss" means one or more incorrect answers (reading or meaning)
     this.minutes = function () {
       // number of minutes spent reviewing in this session
-      return Math.round((this.endTime - this.startTime) / (1000 * 60));
+      let raw =
+        endTime - startTime < settings.maxSpeed * 100
+          ? Math.round((this.endTime - this.startTime) / (1000 * 60))
+          : settings.maxSpeed / 60 / 2; // assume single review session speed is typical
+      return raw;
     };
   }
 
