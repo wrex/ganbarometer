@@ -17,3 +17,11 @@ you were unable to answer correctly during your recent reviews.
 
 By default, the script only looks at the reviews you've performed over the past
 72 hours and divides by three to derive a daily average.
+
+---
+
+The [GanbarOmeter script](https://greasyfork.org/en/scripts/432632-ganbarometer) adds three gauges to your dashboard:
+
+![Screen Shot 2021-09-18 at 10.15.39 PM|690x275](./screenshot.png)
+
+These gauges help you to decide if you should increase or decrease the number of lessons you perform each day. If the values are mostly in the middle of the ranges, you should continue at roughly the same pace. If any
