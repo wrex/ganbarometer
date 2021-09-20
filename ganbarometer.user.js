@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      0.7
+// @version      0.8
 // @description  Add Difficulty, Load, and Speed gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
