@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      0.5
-// @description  Add Pace and Difficulty gauges to the Wanikani Dashboard
+// @version      0.6
+// @description  Add Difficulty, Load, and Speed gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
 // @license      MIT-0 https://opensource.org/licenses/MIT-0
@@ -323,10 +323,10 @@ Click "OK" to be forwarded to installation instructions.`
   async function render(itemData, apiv2) {
     // Get all reviews within interval hours of now
     let firstReviewDate = new Date(
-      new Date().getTime() - settings.interval * 60 * 60 * 1000
+      Date.now() - settings.interval * 60 * 60 * 1000
     );
     let options = {
-      last_update: firstReviewDate.toString(),
+      last_update: firstReviewDate,
     };
 
     let reviewCollection = await wkof.Apiv2.fetch_endpoint("reviews", options);
@@ -530,7 +530,7 @@ ${metrics.sessions.length} sessions:`
       if (
         withinSession(
           curSession.endTime, // prevTime
-          new Date(review.data_updated_at).getTime(), // newTime
+          new Date(review.data_updated_at), // newTime
           settings.sessionIntervalMax // maxMinutes
         )
       ) {
