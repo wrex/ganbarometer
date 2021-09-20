@@ -256,6 +256,22 @@ Click "OK" to be forwarded to installation instructions.`
     sessions: [], // array of Session objects
     apprentice: 0, // total number of items currently in Apprentice (stages 1-4)
     newKanji: 0, // total number of radicals & kanji in stages 1 or 2
+    pareto: [
+      // name, rangeStart in seconds, count
+      { name: "0-5s", rangeStart: 0, count: 0 },
+      { name: "5s-10s", rangeStart: 5, count: 0 },
+      { name: "10s-20s", rangeStart: 10, count: 0 },
+      { name: "20s-1m", rangeStart: 20, count: 0 },
+      { name: "1m-2m", rangeStart: 60, count: 0 },
+      { name: "2m-5m", rangeStart: 120, count: 0 },
+      { name: "5m-10m", rangeStart: 300, count: 0 },
+      { name: "10m-20m", rangeStart: 600, count: 0 },
+      { name: "20m-40m", rangeStart: 1200, count: 0 },
+      { name: "40m-1h", rangeStart: 2400, count: 0 },
+      { name: "1h-2h", rangeStart: 3600, count: 0 },
+      { name: "over-2h", rangeStart: 7200, count: 0 },
+    ],
+
     minutes: function () {
       // total number of minutes spent reviewing over interval
       let min = 0;
@@ -337,6 +353,7 @@ Click "OK" to be forwarded to installation instructions.`
 
     // Calculate and save our second set of metrics
     // findSessions() returns an Array of Session objects
+    // Also builds metrics.pareto
     metrics.sessions = findSessions(newReviews);
 
     // Finally, retrieve and save the apprentice and newKanji metrics
@@ -385,31 +402,49 @@ settings:
   - maxLoad: ${settings.maxLoad}
   - maxSpeed: ${settings.maxSpeed}
   - backgroundColor: ${settings.backgroundColor}
+
 ${metrics.reviewed} reviews in ${settings.interval} hours
 ${Math.round(10 * metrics.missesPerDay()) / 10} misses per day
 ${metrics.minutes()} total minutes
 ${metrics.sessions.length} sessions:`
     );
+
+    let lastEndTime = 0;
     metrics.sessions.forEach((s) => {
       console.log(
-        `     - Start: ${s.startTime}
+        `     - (${
+          lastEndTime > 0
+            ? Math.round((s.startTime - lastEndTime) / (1000 * 60))
+            : 0
+        } minutes since prior)
+       Start: ${s.startTime}
        End: ${s.endTime}
        Misses: ${s.misses}
        Reviews: ${s.len}
        Review minutes: ${s.minutes()}`
       );
+      lastEndTime = s.endTime;
     });
+
+    console.log("Pareto of review-to-review intervals:");
+    metrics.pareto.forEach((bucket) => {
+      console.log(`  ${bucket.name}: ${bucket.count}`);
+    });
+
     console.log(
       `${metrics.apprentice} apprentice ${metrics.newKanji} newKanji`
     );
+
     console.log(
       `${metrics.reviewsPerDay()} reviews per day (0 - ${settings.maxLoad}`
     );
+
     console.log(
       `${metrics.secondsPerReview()} seconds per review (0 - ${
         settings.maxSpeed
       })`
     );
+
     console.log(`Difficulty: ${metrics.difficulty()} (0-1)`);
     console.log(`Load: ${metrics.load()}`);
     console.log(`Speed: ${metrics.speed()}`);
@@ -571,6 +606,15 @@ ${metrics.sessions.length} sessions:`
   // Determine if newTime is within maxMinutes of prevTime
   function withinSession(prevTime, newTime, maxMinutes) {
     let timeDifference = newTime - prevTime;
+
+    // increment appropriate pareto counter
+    for (let i = metrics.pareto.length - 1; i >= 0; i--) {
+      let bucket = metrics.pareto[i];
+      if (timeDifference >= bucket.rangeStart * 1000) {
+        bucket.count += 1;
+        break;
+      }
+    }
     return timeDifference <= maxMinutes * 1000 * 60;
   }
 })(window.wkof);
