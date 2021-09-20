@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      0.6
+// @version      0.7
 // @description  Add Difficulty, Load, and Speed gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -372,6 +372,9 @@ Click "OK" to be forwarded to installation instructions.`
   function logMetrics(metrics) {
     console.log(
       `------ GanbarOmeter debug output ------
+
+Local time: ${Date()}
+
 settings:
   - interval: ${settings.interval}
   - sessionIntervalMax: ${settings.sessionIntervalMax}
@@ -568,6 +571,6 @@ ${metrics.sessions.length} sessions:`
   // Determine if newTime is within maxMinutes of prevTime
   function withinSession(prevTime, newTime, maxMinutes) {
     let timeDifference = newTime - prevTime;
-    return timeDifference <= maxMinutes * 1000 * 60 * 60;
+    return timeDifference <= maxMinutes * 1000 * 60;
   }
 })(window.wkof);
