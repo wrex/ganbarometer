@@ -14,15 +14,14 @@
 (function (wkof) {
   "use strict";
 
-  // ---------------------- Set up global constants -----------------------
+  // ---------------------- Set up global variables -----------------------
 
   // This script identifiers for caches, etc.
   const script_id = "ganbarometer";
   const script_name = "Ganbarometer";
 
   const defaults = {
-    settingsVersion: "1.0", // add version so we can reset defaults when required
-    debug: true, // display debug information
+    version: "settings-v0.1", // track which version populated the settings
     interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 2, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
@@ -55,16 +54,17 @@
       { name: `10m`, rangeStart: 120, count: 0 }, // 2 min to 10 min
       { name: `> 10m`, rangeStart: 600, count: 0 }, // > 10 min
     ],
+    // total number of minutes spent reviewing over interval
     minutes: function () {
-      // total number of minutes spent reviewing over interval
       let min = 0;
       for (let sess of this.sessions) {
         min += sess.minutes();
       }
       return min;
     },
+
+    // avg number of review items answered incorrectly per day
     missesPerDay: function () {
-      // number of review items answered incorrectly over interval
       let s = 0;
       for (let sess of this.sessions) {
         s += sess.misses;
@@ -72,17 +72,20 @@
       s = (s * 24) / settings.interval;
       return s;
     },
+
+    // reviews-per-day averaged over the interval
     reviewsPerDay: function () {
-      // reviews-per-day averaged over the interval
       return Math.round((this.reviewed * 24) / settings.interval);
     },
+
+    // seconds-per-review averaged over the sessions
     secondsPerReview: function () {
-      // seconds-per-review averaged over the sessions
       return Math.round((60 * this.minutes()) / this.reviewed);
     },
+
+    // difficulty() returns a value from 0 to 1, with 0.5 representing "normal"
+    // Normal = ~100 items in Apprentice bucket (stages 1-4)
     difficulty: function () {
-      // return a value from 0 to 1, with 0.5 representing "normal"
-      // Normal = ~100 items in Apprentice bucket (stages 1-4)
       let raw = this.apprentice / (2 * settings.normalApprenticeQty);
 
       // Heuristic 1: new kanji are harder than other apprentice items
@@ -102,21 +105,25 @@
 
       return raw > 1 ? 1 : raw;
     },
+
+    // load() returns a value betweeen 0 and 1 representing the percentage of reviews
+    // per day relative to maxLoad
     load: function () {
-      // returns a value betweeen 0 and 1 representing the percentage of reviews
-      // per day relative to maxLoad
       let raw = this.reviewsPerDay() / settings.maxLoad;
       return raw > 1 ? 1 : raw;
     },
+
+    // speed() returns a value between 0 and 1 representing the percentage of seconds
+    // per review relative to maxSpeed
     speed: function () {
-      // returns a value between 0 and 1 representing the percentage of seconds
-      // per review relative to maxSpeed
       let raw = this.secondsPerReview() / settings.maxSpeed;
       return raw > 1 ? 1 : raw;
     },
   };
 
-  const settings = {}; // to be populated later
+  // To be populated by updateSettings()
+  const requiredSettingsVersion = "settings-v0.1"; // Only update when user's saved settings must be overwritten
+  let settings = {};
 
   const settingsConfig = {
     script_id: script_id,
@@ -252,20 +259,26 @@ Click "OK" to be forwarded to installation instructions.`
     return wkof.Settings.load(script_id, defaults);
   }
 
-  function updateSettings() {
-    settings.debug = wkof.settings.ganbarometer.debug;
-    settings.interval = wkof.settings.ganbarometer.interval;
-    settings.sessionIntervalMax = wkof.settings.ganbarometer.sessionIntervalMax;
-    settings.normalApprenticeQty =
-      wkof.settings.ganbarometer.normalApprenticeQty;
-    settings.newKanjiWeighting = wkof.settings.ganbarometer.newKanjiWeighting;
-    settings.normalMisses = wkof.settings.ganbarometer.normalMisses / 100;
-    settings.extraMissesWeighting =
-      wkof.settings.ganbarometer.extraMissesWeighting;
-    settings.maxLoad = wkof.settings.ganbarometer.maxLoad;
-    settings.maxSpeed = wkof.settings.ganbarometer.maxSpeed;
-    settings.backgroundColor = wkof.settings.ganbarometer.backgroundColor;
-    wkof.Settings.save(script_id);
+  function updateSettings(loadedSettings) {
+    if (
+      typeof loadedSettings.version == "undefined" ||
+      loadedSettings.version != requiredSettingsVersion
+    ) {
+      // Required settings version not found, force save of defaults
+      alert(
+        `User's Ganbarometer settings overwritten with defaults (${requiredSettingsVersion} not found)`
+      );
+
+      // overwrite user's stored settings
+      loadedSettings = defaults;
+      wkof.Settings.save("ganbarometer");
+
+      // use defaults in this session
+      settings = defaults;
+    } else {
+      // already loaded settings with the required version
+      settings = loadedSettings;
+    }
   }
 
   let css = "";
@@ -355,6 +368,11 @@ Click "OK" to be forwarded to installation instructions.`
   font-size: 25px;
 }
     `;
+    // Append our styling to the head of the document
+    const gbStyle = document.createElement("style");
+    gbStyle.id = script_id + "CSS";
+    gbStyle.innerHTML = css;
+    document.querySelector("head").append(gbStyle);
   }
 
   /*
@@ -475,13 +493,16 @@ ${metrics.sessions.length} sessions:`
     console.log(`------ End GanbarOmeter ------`);
   }
 
+  function createSection() {
+    // Create a section for our content
+    const gbSection = document.createElement("Section");
+    gbSection.classList.add(`${script_id}`);
+    return gbSection;
+  }
+
   // Create an html <section> for our metrics and add to dashboard
   function updateDashboard(metrics, settings) {
-    // Append our styling to the head of the doucment
-    const gbStyle = document.createElement("style");
-    gbStyle.id = script_id + "CSS";
-    gbStyle.innerHTML = css;
-    document.querySelector("head").append(gbStyle);
+    const gbSection = createSection();
 
     let html =
       `<label>Daily averages for the past ${settings.interval} hours</label>` +
@@ -495,9 +516,6 @@ ${metrics.sessions.length} sessions:`
       renderDiv("gbLoad", "Load", "reviews/day") +
       renderDiv("gbSpeed", "Speed", "sec/review");
 
-    // Create a section for our content
-    const gbSection = document.createElement("Section");
-    gbSection.classList.add(`${script_id}`);
     gbSection.innerHTML = html;
 
     let gauge = gbSection.querySelector("#gbDifficulty");
