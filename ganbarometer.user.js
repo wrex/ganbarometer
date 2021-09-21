@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Add Difficulty, Load, and Speed gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -14,9 +14,201 @@
 (function (wkof) {
   "use strict";
 
+  // ---------------------- Set up global constants -----------------------
+
   // This script identifiers for caches, etc.
   const script_id = "ganbarometer";
   const script_name = "Ganbarometer";
+
+  const defaults = {
+    settingsVersion: "1.0", // add version so we can reset defaults when required
+    debug: true, // display debug information
+    interval: 72, // Number of hours to summarize reviews over
+    sessionIntervalMax: 2, // max minutes between reviews in same session
+    normalApprenticeQty: 100, // normal number of items in apprentice queue
+    newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
+    normalMisses: 20, // no additional weighting for up to 20% of daily reviews
+    extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
+    maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
+    maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
+    backgroundColor: "#f4f4f4", // section background color
+  };
+
+  // The metrics we want to retrieve and display
+  const metrics = {
+    reviewed: 0, // total number of items reviewed over interval
+    sessions: [], // array of Session objects
+    apprentice: 0, // total number of items currently in Apprentice (stages 1-4)
+    newKanji: 0, // total number of radicals & kanji in stages 1 or 2
+    pareto: [
+      // buckets every 15 seconds up to 2 minutes,
+      // a bucket for 2 to 10 minutes, then a bucket for everything > 10 min
+      // name, rangeStart in seconds, count
+      { name: `15"`, rangeStart: 0, count: 0 }, // 0 to 15 seconds
+      { name: `30"`, rangeStart: 15, count: 0 }, // 15 to 30 seconds
+      { name: `45"`, rangeStart: 30, count: 0 }, // 30 to 45 seconds
+      { name: `1'`, rangeStart: 45, count: 0 }, // 45s to 1 min
+      { name: `1'15"`, rangeStart: 60, count: 0 }, // 1 min to 1'15s
+      { name: `1'30"`, rangeStart: 75, count: 0 }, // 1'15" to 1'30s
+      { name: `1'45"`, rangeStart: 90, count: 0 }, // 1'30" to 1'45s
+      { name: `2m`, rangeStart: 105, count: 0 }, // 1'45s to 2 min
+      { name: `10m`, rangeStart: 120, count: 0 }, // 2 min to 10 min
+      { name: `> 10m`, rangeStart: 600, count: 0 }, // > 10 min
+    ],
+    minutes: function () {
+      // total number of minutes spent reviewing over interval
+      let min = 0;
+      for (let sess of this.sessions) {
+        min += sess.minutes();
+      }
+      return min;
+    },
+    missesPerDay: function () {
+      // number of review items answered incorrectly over interval
+      let s = 0;
+      for (let sess of this.sessions) {
+        s += sess.misses;
+      }
+      s = (s * 24) / settings.interval;
+      return s;
+    },
+    reviewsPerDay: function () {
+      // reviews-per-day averaged over the interval
+      return Math.round((this.reviewed * 24) / settings.interval);
+    },
+    secondsPerReview: function () {
+      // seconds-per-review averaged over the sessions
+      return Math.round((60 * this.minutes()) / this.reviewed);
+    },
+    difficulty: function () {
+      // return a value from 0 to 1, with 0.5 representing "normal"
+      // Normal = ~100 items in Apprentice bucket (stages 1-4)
+      let raw = this.apprentice / (2 * settings.normalApprenticeQty);
+
+      // Heuristic 1: new kanji are harder than other apprentice items
+      // raw +=
+      //   (this.newKanji * settings.newKanjiWeighting) /
+      //   (2 * settings.normalApprenticeQty);
+      raw = raw * (1 + this.newKanji * settings.newKanjiWeighting);
+
+      // Heuristic 2: missed items are harder than other apprentice items
+      let allowedMisses = Math.round(
+        settings.normalMisses * this.reviewsPerDay
+      );
+      let extraMisses = this.missesPerDay - allowedMisses;
+      if (extraMisses > 0) {
+        raw = raw * (1 + extraMisses * settings.extraMissesWeighting);
+      }
+
+      return raw > 1 ? 1 : raw;
+    },
+    load: function () {
+      // returns a value betweeen 0 and 1 representing the percentage of reviews
+      // per day relative to maxLoad
+      let raw = this.reviewsPerDay() / settings.maxLoad;
+      return raw > 1 ? 1 : raw;
+    },
+    speed: function () {
+      // returns a value between 0 and 1 representing the percentage of seconds
+      // per review relative to maxSpeed
+      let raw = this.secondsPerReview() / settings.maxSpeed;
+      return raw > 1 ? 1 : raw;
+    },
+  };
+
+  const settings = {}; // to be populated later
+
+  const settingsConfig = {
+    script_id: script_id,
+    title: script_name,
+    on_save: updateSettings,
+    content: {
+      interval: {
+        type: "number",
+        label: "Review history hours",
+        default: defaults.interval,
+        hover_tip: "Number of hours to summarize reviews over (1 - 168)",
+        min: 1,
+        max: 168,
+      },
+      sessionIntervalMax: {
+        type: "number",
+        label: "Session interval",
+        default: defaults.sessionIntervalMax,
+        hover_tip: "Max minutes between reviews in a single session (0.5 - 10)",
+        min: 1,
+        max: 10,
+      },
+      normalApprenticeQty: {
+        type: "number",
+        label: "Desired apprentice quantity",
+        default: defaults.normalApprenticeQty,
+        hover_tip:
+          "Number of desired items in the Apprentice bucket (30 - 500)",
+        min: 30,
+        max: 500,
+      },
+      newKanjiWeighting: {
+        type: "number",
+        label: "New kanji weighting factor",
+        default: defaults.newKanjiWeighting,
+        hover_tip:
+          "A value of 0.05 means 10 kanji in stages 1 & 2 imply 50% higher difficulty (0 - 0.1)",
+        min: 0,
+        max: 0.1,
+      },
+      normalMisses: {
+        type: "number",
+        label: "Typical percentage of items missed during reviews",
+        default: defaults.normalMisses,
+        hover_tip:
+          "Only misses beyond this percentage are weighted more heavily (0 - 50)",
+        min: 0,
+        max: 50,
+      },
+      extraMissesWeighting: {
+        type: "number",
+        label: "Extra misses weighting",
+        default: defaults.extraMissesWeighting,
+        hover_tip:
+          "A value of 0.03 means 10 extra misses imply 30% higher difficulty (0 - 0.1)",
+        min: 0,
+        max: 0.1,
+      },
+      maxLoad: {
+        type: "number",
+        label: "Maximum reviews per day",
+        default: defaults.maxLoad,
+        hover_tip:
+          "This should be 2X the typical number of reviews/day (10 - 500)",
+        min: 10,
+        max: 500,
+      },
+      maxSpeed: {
+        type: "number",
+        label: "Maximum number of seconds per review",
+        default: defaults.maxSpeed,
+        hover_tip:
+          "This should be 2x the typical number of seconds/review (10 - 60)",
+        min: 10,
+        max: 60,
+      },
+      backgroundColor: {
+        type: "color",
+        label: "Background color",
+        default: defaults.backgroundColor,
+        hover_tip: "Background color for theming",
+      },
+      debug: {
+        type: "checkbox",
+        label: "Debug",
+        default: defaults.debug,
+        hover_tip: "Display debug info on console?",
+      },
+    },
+  };
+
+  // ----------------------------------------------------------------------
 
   // Ensure WKOF is installed
   if (!wkof) {
@@ -46,123 +238,18 @@ Click "OK" to be forwarded to installation instructions.`
     wkof.Menu.insert_script_link({
       name: script_name,
       submenu: "Settings",
-      title: "GanbarOmeter",
+      title: script_name,
       on_click: openSettings,
     });
   }
 
-  const settings = {};
-
-  let defaults = {
-    debug: true, // display debug information
-    interval: 72, // Number of hours to summarize reviews over
-    sessionIntervalMax: 10, // max minutes between reviews in same session
-    normalApprenticeQty: 100, // normal number of items in apprentice queue
-    newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
-    normalMisses: 20, // no additional weighting for up to 20% of daily reviews
-    extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
-    maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
-    maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
-    backgroundColor: "#f4f4f4", // section background color
-  };
+  function openSettings() {
+    let dialog = new wkof.Settings(settingsConfig);
+    dialog.open();
+  }
 
   function loadSettings() {
     return wkof.Settings.load(script_id, defaults);
-  }
-
-  function openSettings() {
-    let config = {
-      script_id: script_id,
-      title: script_name,
-      on_save: updateSettings,
-      content: {
-        interval: {
-          type: "number",
-          label: "Review history hours",
-          default: defaults.interval,
-          hover_tip: "Number of hours to summarize reviews over (1 - 168)",
-          min: 1,
-          max: 168,
-        },
-        sessionIntervalMax: {
-          type: "number",
-          label: "Session interval",
-          default: defaults.sessionIntervalMax,
-          hover_tip:
-            "Max minutes between reviews in a single session (0.5 - 10)",
-          min: 1,
-          max: 10,
-        },
-        normalApprenticeQty: {
-          type: "number",
-          label: "Desired apprentice quantity",
-          default: defaults.normalApprenticeQty,
-          hover_tip:
-            "Number of desired items in the Apprentice bucket (30 - 500)",
-          min: 30,
-          max: 500,
-        },
-        newKanjiWeighting: {
-          type: "number",
-          label: "New kanji weighting factor",
-          default: defaults.newKanjiWeighting,
-          hover_tip:
-            "A value of 0.05 means 10 kanji in stages 1 & 2 imply 50% higher difficulty (0 - 0.1)",
-          min: 0,
-          max: 0.1,
-        },
-        normalMisses: {
-          type: "number",
-          label: "Typical percentage of items missed during reviews",
-          default: defaults.normalMisses,
-          hover_tip:
-            "Only misses beyond this percentage are weighted more heavily (0 - 50)",
-          min: 0,
-          max: 50,
-        },
-        extraMissesWeighting: {
-          type: "number",
-          label: "Extra misses weighting",
-          default: defaults.extraMissesWeighting,
-          hover_tip:
-            "A value of 0.03 means 10 extra misses imply 30% higher difficulty (0 - 0.1)",
-          min: 0,
-          max: 0.1,
-        },
-        maxLoad: {
-          type: "number",
-          label: "Maximum reviews per day",
-          default: defaults.maxLoad,
-          hover_tip:
-            "This should be 2X the typical number of reviews/day (10 - 500)",
-          min: 10,
-          max: 500,
-        },
-        maxSpeed: {
-          type: "number",
-          label: "Maximum number of seconds per review",
-          default: defaults.maxSpeed,
-          hover_tip:
-            "This should be 2x the typical number of seconds/review (10 - 60)",
-          min: 10,
-          max: 60,
-        },
-        backgroundColor: {
-          type: "color",
-          label: "Background color",
-          default: defaults.backgroundColor,
-          hover_tip: "Background color for theming",
-        },
-        debug: {
-          type: "checkbox",
-          label: "Debug",
-          default: defaults.debug,
-          hover_tip: "Display debug info on console?",
-        },
-      },
-    };
-    let dialog = new wkof.Settings(config);
-    dialog.open();
   }
 
   function updateSettings() {
@@ -269,89 +356,6 @@ Click "OK" to be forwarded to installation instructions.`
 }
     `;
   }
-
-  // The metrics we want to retrieve and display
-  const metrics = {
-    reviewed: 0, // total number of items reviewed over interval
-    sessions: [], // array of Session objects
-    apprentice: 0, // total number of items currently in Apprentice (stages 1-4)
-    newKanji: 0, // total number of radicals & kanji in stages 1 or 2
-    pareto: [
-      // name, rangeStart in seconds, count
-      { name: "0-5s", rangeStart: 0, count: 0 },
-      { name: "5s-10s", rangeStart: 5, count: 0 },
-      { name: "10s-20s", rangeStart: 10, count: 0 },
-      { name: "20s-1m", rangeStart: 20, count: 0 },
-      { name: "1m-2m", rangeStart: 60, count: 0 },
-      { name: "2m-5m", rangeStart: 120, count: 0 },
-      { name: "5m-10m", rangeStart: 300, count: 0 },
-      { name: "10m-20m", rangeStart: 600, count: 0 },
-      { name: "20m-40m", rangeStart: 1200, count: 0 },
-      { name: "40m-1h", rangeStart: 2400, count: 0 },
-      { name: "1h-2h", rangeStart: 3600, count: 0 },
-      { name: "over-2h", rangeStart: 7200, count: 0 },
-    ],
-
-    minutes: function () {
-      // total number of minutes spent reviewing over interval
-      let min = 0;
-      for (let sess of this.sessions) {
-        min += sess.minutes();
-      }
-      return min;
-    },
-    missesPerDay: function () {
-      // number of review items answered incorrectly over interval
-      let s = 0;
-      for (let sess of this.sessions) {
-        s += sess.misses;
-      }
-      s = (s * 24) / settings.interval;
-      return s;
-    },
-    reviewsPerDay: function () {
-      // reviews-per-day averaged over the interval
-      return Math.round((this.reviewed * 24) / settings.interval);
-    },
-    secondsPerReview: function () {
-      // seconds-per-review averaged over the sessions
-      return Math.round((60 * this.minutes()) / this.reviewed);
-    },
-    difficulty: function () {
-      // return a value from 0 to 1, with 0.5 representing "normal"
-      // Normal = ~100 items in Apprentice bucket (stages 1-4)
-      let raw = this.apprentice / (2 * settings.normalApprenticeQty);
-
-      // Heuristic 1: new kanji are harder than other apprentice items
-      // raw +=
-      //   (this.newKanji * settings.newKanjiWeighting) /
-      //   (2 * settings.normalApprenticeQty);
-      raw = raw * (1 + this.newKanji * settings.newKanjiWeighting);
-
-      // Heuristic 2: missed items are harder than other apprentice items
-      let allowedMisses = Math.round(
-        settings.normalMisses * this.reviewsPerDay
-      );
-      let extraMisses = this.missesPerDay - allowedMisses;
-      if (extraMisses > 0) {
-        raw = raw * (1 + extraMisses * settings.extraMissesWeighting);
-      }
-
-      return raw > 1 ? 1 : raw;
-    },
-    load: function () {
-      // returns a value betweeen 0 and 1 representing the percentage of reviews
-      // per day relative to maxLoad
-      let raw = this.reviewsPerDay() / settings.maxLoad;
-      return raw > 1 ? 1 : raw;
-    },
-    speed: function () {
-      // returns a value between 0 and 1 representing the percentage of seconds
-      // per review relative to maxSpeed
-      let raw = this.secondsPerReview() / settings.maxSpeed;
-      return raw > 1 ? 1 : raw;
-    },
-  };
 
   /*
    * ********* MAIN function to calculate and display metrics ********
