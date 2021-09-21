@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      0.8
+// @version      1.0
 // @description  Add Difficulty, Load, and Speed gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -78,54 +78,74 @@ Click "OK" to be forwarded to installation instructions.`
       content: {
         interval: {
           type: "number",
-          label: "Running Average Hours",
+          label: "Review history hours",
           default: defaults.interval,
-          hover_tip: "Number of hours to summarize reviews over",
+          hover_tip: "Number of hours to summarize reviews over (1 - 168)",
+          min: 1,
+          max: 168,
         },
         sessionIntervalMax: {
           type: "number",
           label: "Session interval",
           default: defaults.sessionIntervalMax,
-          hover_tip: "Max minutes between reviews in a single session",
+          hover_tip:
+            "Max minutes between reviews in a single session (0.5 - 10)",
+          min: 1,
+          max: 10,
         },
         normalApprenticeQty: {
           type: "number",
           label: "Desired apprentice quantity",
           default: defaults.normalApprenticeQty,
-          hover_tip: "Number of desired items in the Apprentice bucket",
+          hover_tip:
+            "Number of desired items in the Apprentice bucket (30 - 500)",
+          min: 30,
+          max: 500,
         },
         newKanjiWeighting: {
           type: "number",
           label: "New kanji weighting factor",
           default: defaults.newKanjiWeighting,
           hover_tip:
-            "A value of 0.05 means 10 kanji in stages 1 & 2 imply 50% higher difficulty",
+            "A value of 0.05 means 10 kanji in stages 1 & 2 imply 50% higher difficulty (0 - 0.1)",
+          min: 0,
+          max: 0.1,
         },
         normalMisses: {
           type: "number",
           label: "Typical percentage of items missed during reviews",
           default: defaults.normalMisses,
           hover_tip:
-            "Only misses beyond this percentage are weighted more heavily",
+            "Only misses beyond this percentage are weighted more heavily (0 - 50)",
+          min: 0,
+          max: 50,
         },
         extraMissesWeighting: {
           type: "number",
           label: "Extra misses weighting",
           default: defaults.extraMissesWeighting,
           hover_tip:
-            "A value of 0.03 means 10 extra misses imply 30% higher difficulty",
+            "A value of 0.03 means 10 extra misses imply 30% higher difficulty (0 - 0.1)",
+          min: 0,
+          max: 0.1,
         },
         maxLoad: {
           type: "number",
           label: "Maximum reviews per day",
           default: defaults.maxLoad,
-          hover_tip: "This should be 2X the typical number of reviews/day",
+          hover_tip:
+            "This should be 2X the typical number of reviews/day (10 - 500)",
+          min: 10,
+          max: 500,
         },
         maxSpeed: {
           type: "number",
           label: "Maximum number of seconds per review",
           default: defaults.maxSpeed,
-          hover_tip: "This should be 2x the typical number of seconds/review",
+          hover_tip:
+            "This should be 2x the typical number of seconds/review (10 - 60)",
+          min: 10,
+          max: 60,
         },
         backgroundColor: {
           type: "color",
@@ -415,7 +435,7 @@ ${metrics.sessions.length} sessions:`
         `     - (${
           lastEndTime > 0
             ? Math.round((s.startTime - lastEndTime) / (1000 * 60))
-            : 0
+            : "?"
         } minutes since prior)
        Start: ${s.startTime}
        End: ${s.endTime}
