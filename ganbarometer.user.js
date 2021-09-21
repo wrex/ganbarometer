@@ -259,7 +259,7 @@ Click "OK" to be forwarded to installation instructions.`
     return wkof.Settings.load(script_id, defaults);
   }
 
-  function updateSettings(loadedSettings) {
+  async function updateSettings(loadedSettings) {
     if (
       typeof loadedSettings.version == "undefined" ||
       loadedSettings.version != requiredSettingsVersion
@@ -278,6 +278,14 @@ Click "OK" to be forwarded to installation instructions.`
     } else {
       // already loaded settings with the required version
       settings = loadedSettings;
+    }
+
+    // new settings, so refresh the content
+    let gbSection = document.querySelector(`.${script_id}`);
+    if (gbSection != null) {
+      // already rendered, so repopulate
+      await collectMetrics();
+      populateGbSection(document.querySelector(`.${script_id}`));
     }
   }
 
@@ -378,7 +386,8 @@ Click "OK" to be forwarded to installation instructions.`
   /*
    * ********* MAIN function to calculate and display metrics ********
    */
-  async function render(itemData, apiv2) {
+
+  async function collectMetrics() {
     // Get all reviews within interval hours of now
     let firstReviewDate = new Date(
       Date.now() - settings.interval * 60 * 60 * 1000
@@ -423,9 +432,12 @@ Click "OK" to be forwarded to installation instructions.`
     if (settings.debug) {
       logMetrics(metrics);
     }
+  }
 
+  async function render() {
+    await collectMetrics();
     // Now populate the section and add it to the dashboard
-    updateDashboard(metrics, settings);
+    insertGbSection();
   }
 
   function logMetrics(metrics) {
@@ -493,17 +505,14 @@ ${metrics.sessions.length} sessions:`
     console.log(`------ End GanbarOmeter ------`);
   }
 
-  function createSection() {
+  function createGbSection() {
     // Create a section for our content
     const gbSection = document.createElement("Section");
     gbSection.classList.add(`${script_id}`);
     return gbSection;
   }
 
-  // Create an html <section> for our metrics and add to dashboard
-  function updateDashboard(metrics, settings) {
-    const gbSection = createSection();
-
+  function populateGbSection(gbSection) {
     let html =
       `<label>Daily averages for the past ${settings.interval} hours</label>` +
       renderDiv(
@@ -526,9 +535,14 @@ ${metrics.sessions.length} sessions:`
 
     gauge = gbSection.querySelector("#gbSpeed");
     setGaugeValue(gauge, metrics.speed(), `${metrics.secondsPerReview()}`);
+  }
 
+  // Create an html <section> for our metrics and add to dashboard
+  function insertGbSection(section) {
+    section = createGbSection();
+    populateGbSection(section);
     // Now add our new section at the just before the forum list
-    document.querySelector(".progress-and-forecast").before(gbSection);
+    document.querySelector(".progress-and-forecast").before(section);
   }
 
   function renderDiv(id, title, text) {
