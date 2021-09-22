@@ -43,15 +43,14 @@
       // buckets every 15 seconds up to 2 minutes,
       // a bucket for 2 to 10 minutes, then a bucket for everything > 10 min
       // name, rangeStart in seconds, count
-      { name: `&vrtri;`, rangeStart: 0, count: 0 }, // 0 to 15 seconds
-      { name: `30"`, rangeStart: 15, count: 0 }, // 15 to 30 seconds
-      { name: `&vltri;`, rangeStart: 30, count: 0 }, // 30 to 45 seconds
-      { name: `1'`, rangeStart: 45, count: 0 }, // 45s to 1 min
-      { name: `&vrtri;`, rangeStart: 60, count: 0 }, // 1 min to 1'15s
-      { name: `1'30"`, rangeStart: 75, count: 0 }, // 1'15" to 1'30s
-      { name: `&vltri;`, rangeStart: 90, count: 0 }, // 1'30" to 1'45s
-      { name: `2'`, rangeStart: 105, count: 0 }, // 1'45s to 2 min
-      { name: `10'`, rangeStart: 120, count: 0 }, // 2 min to 10 min
+      { name: `10"`, rangeStart: 0, count: 0 }, // 0 to 10 seconds
+      { name: `20"`, rangeStart: 10, count: 0 }, // 10 to 20 seconds
+      { name: `30"`, rangeStart: 20, count: 0 }, // 20 to 30 seconds
+      { name: `1'`, rangeStart: 30, count: 0 }, // 30 to 1 min
+      { name: `1'30"`, rangeStart: 60, count: 0 }, // 1' to 1'30"
+      { name: `2'`, rangeStart: 90, count: 0 }, // 1'30" to 2'
+      { name: `5'`, rangeStart: 120, count: 0 }, // 2' to 5'
+      { name: `10'`, rangeStart: 300, count: 0 }, // 5' to 10'
       { name: `&gt;10'`, rangeStart: 600, count: 0 }, // > 10 min
     ],
 
@@ -572,11 +571,7 @@ ${metrics.sessions.length} sessions:`
           metrics.missesPerDay()
         )}m)`
       ) +
-      renderGaugeDiv("gbLoad", "Load", "reviews/day");
-    /*
-      +
-      renderGaugeDiv("gbSpeed", "Speed", "sec/review");
-      */
+      renderGaugeDiv("gbLoad", "Pace", "reviews/day");
 
     gbSection.innerHTML = html;
 
@@ -590,7 +585,7 @@ ${metrics.sessions.length} sessions:`
     let barsContainer = document.createElement("div");
     // barsContainer.classList.add("gbSpeed");
     barsContainer.id = "gbSpeed";
-    barsContainer.innerHTML = "<h1>Speed</h1>";
+    barsContainer.innerHTML = "<h1>Answer Speed</h1>";
     let chart = document.createElement("div");
     chart.classList.add("chart");
     barsContainer.appendChild(chart);
