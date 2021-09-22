@@ -43,17 +43,27 @@
       // buckets every 15 seconds up to 2 minutes,
       // a bucket for 2 to 10 minutes, then a bucket for everything > 10 min
       // name, rangeStart in seconds, count
-      { name: `15"`, rangeStart: 0, count: 0 }, // 0 to 15 seconds
+      { name: `&vrtri;`, rangeStart: 0, count: 0 }, // 0 to 15 seconds
       { name: `30"`, rangeStart: 15, count: 0 }, // 15 to 30 seconds
-      { name: `45"`, rangeStart: 30, count: 0 }, // 30 to 45 seconds
+      { name: `&vltri;`, rangeStart: 30, count: 0 }, // 30 to 45 seconds
       { name: `1'`, rangeStart: 45, count: 0 }, // 45s to 1 min
-      { name: `1'15"`, rangeStart: 60, count: 0 }, // 1 min to 1'15s
+      { name: `&vrtri;`, rangeStart: 60, count: 0 }, // 1 min to 1'15s
       { name: `1'30"`, rangeStart: 75, count: 0 }, // 1'15" to 1'30s
-      { name: `1'45"`, rangeStart: 90, count: 0 }, // 1'30" to 1'45s
-      { name: `2m`, rangeStart: 105, count: 0 }, // 1'45s to 2 min
-      { name: `10m`, rangeStart: 120, count: 0 }, // 2 min to 10 min
-      { name: `> 10m`, rangeStart: 600, count: 0 }, // > 10 min
+      { name: `&vltri;`, rangeStart: 90, count: 0 }, // 1'30" to 1'45s
+      { name: `2'`, rangeStart: 105, count: 0 }, // 1'45s to 2 min
+      { name: `10'`, rangeStart: 120, count: 0 }, // 2 min to 10 min
+      { name: `&gt;10'`, rangeStart: 600, count: 0 }, // > 10 min
     ],
+
+    maxParetoValue: function () {
+      return Math.max.apply(
+        Math,
+        this.pareto.map(function (o) {
+          return o.count;
+        })
+      );
+    },
+
     // total number of minutes spent reviewing over interval
     minutes: function () {
       let min = 0;
@@ -306,6 +316,7 @@ Click "OK" to be forwarded to installation instructions.`
   font-size: 18px;
   font-weight: 600;
   margin: 0;
+  text-align: center;
 }
 
 .${script_id} p {
@@ -375,10 +386,49 @@ Click "OK" to be forwarded to installation instructions.`
   box-sizing: border-box;
   font-size: 25px;
 }
+
+#gbSpeed .chart {
+  display: grid;
+  grid-template-columns: repeat(${metrics.pareto.length}, 1fr);
+  grid-template-rows: repeat(100, 1fr);
+  grid-column-gap: 2px;
+  height: 70px;
+  min-width: 300px;
+  width: 15%;
+  background: ${settings.backgroundColor};
+}
+
+#gbSpeed .bar {
+  border-radius: 0;
+  transition: all 0.6s ease;
+  background-color: #59c273;
+  grid-row-start: 1;
+  box-sizing: border-box;
+  grid-row-end: 101;
+  text-align: center;
+  margin-top: auto;
+}
+
+#gbSpeed .bar span {
+  position: relative;
+  top: -20px;
+  font-size: 10px;
+}
+
+#gbSpeed .bar label {
+  position: absolute;
+  /*width: auto;*/
+  bottom: -23px;
+  font-size: 10px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
     `;
-    // Append our styling to the head of the document
+
     const gbStyle = document.createElement("style");
-    gbStyle.id = script_id + "CSS";
+    gbStyle.id = script_id;
     gbStyle.innerHTML = css;
     document.querySelector("head").append(gbStyle);
   }
@@ -515,15 +565,18 @@ ${metrics.sessions.length} sessions:`
   function populateGbSection(gbSection) {
     let html =
       `<label>Daily averages for the past ${settings.interval} hours</label>` +
-      renderDiv(
+      renderGaugeDiv(
         "gbDifficulty",
         "Difficulty",
         `${metrics.apprentice} (${metrics.newKanji}k/${Math.round(
           metrics.missesPerDay()
         )}m)`
       ) +
-      renderDiv("gbLoad", "Load", "reviews/day") +
-      renderDiv("gbSpeed", "Speed", "sec/review");
+      renderGaugeDiv("gbLoad", "Load", "reviews/day");
+    /*
+      +
+      renderGaugeDiv("gbSpeed", "Speed", "sec/review");
+      */
 
     gbSection.innerHTML = html;
 
@@ -533,8 +586,31 @@ ${metrics.sessions.length} sessions:`
     gauge = gbSection.querySelector("#gbLoad");
     setGaugeValue(gauge, metrics.load(), `${metrics.reviewsPerDay()}`);
 
+    // Now add the divs for the speed bar chart
+    let barsContainer = document.createElement("div");
+    // barsContainer.classList.add("gbSpeed");
+    barsContainer.id = "gbSpeed";
+    barsContainer.innerHTML = "<h1>Speed</h1>";
+    let chart = document.createElement("div");
+    chart.classList.add("chart");
+    barsContainer.appendChild(chart);
+
+    for (let i = 0; i < metrics.pareto.length; i++) {
+      let metric = metrics.pareto[i];
+      let bar = document.createElement("div");
+      bar.classList.add("bar");
+      bar.innerHTML = `<span>${metric.count}</span><label>${metric.name}</label>`;
+      bar.style.position = "relative";
+      bar.style.height = `${100 * (metric.count / metrics.maxParetoValue())}%`;
+      chart.appendChild(bar);
+    }
+
+    gbSection.append(barsContainer);
+
+    /* 
     gauge = gbSection.querySelector("#gbSpeed");
     setGaugeValue(gauge, metrics.speed(), `${metrics.secondsPerReview()}`);
+    */
   }
 
   // Create an html <section> for our metrics and add to dashboard
@@ -545,7 +621,7 @@ ${metrics.sessions.length} sessions:`
     document.querySelector(".progress-and-forecast").before(section);
   }
 
-  function renderDiv(id, title, text) {
+  function renderGaugeDiv(id, title, text) {
     return `<div id="${id}" class="gauge">
     <h1>${title}</h1>
     <div class="gauge__body">
@@ -557,9 +633,9 @@ ${metrics.sessions.length} sessions:`
   }
 
   function setGaugeValue(gauge, value, displayValue) {
-    if (value < 0 || value > 1) {
-      return;
-    }
+    // no values less than 0 or greater than 1
+    value = value < 0 ? 0 : value;
+    value = value > 1 ? 1 : value;
 
     let display = displayValue ? displayValue : `${Math.round(value * 100)}%`;
 
@@ -569,8 +645,10 @@ ${metrics.sessions.length} sessions:`
     gauge.querySelector(".gauge__cover").textContent = display;
 
     if (value >= 0.9) {
+      // red for > 90%
       gauge.querySelector(".gauge__fill").style.backgroundColor = "#e50036";
     } else if (value >= 0.8) {
+      // yellow for > 80%
       gauge.querySelector(".gauge__fill").style.backgroundColor = "#ece619";
     }
   }
@@ -586,20 +664,22 @@ ${metrics.sessions.length} sessions:`
 
   // A Session object holds an index into an array of reviews, plus a length
   // Define a Session object
-  function Session(firstIndex, length, startTime, endTime, misses) {
-    this.firstIndex = firstIndex; // index of first review in this session
-    this.len = length; // number of reviews in this session
-    this.startTime = startTime; // start time of first review (Date object)
-    this.endTime = endTime; // start(!!) time of final review (Date object)
-    this.misses = misses; // "miss" means one or more incorrect answers (reading or meaning)
-    this.minutes = function () {
-      // number of minutes spent reviewing in this session
-      let raw =
-        endTime - startTime < settings.maxSpeed * 100
-          ? Math.round((this.endTime - this.startTime) / (1000 * 60))
-          : settings.maxSpeed / 2; // assume single review session speed is typical
-      return raw;
-    };
+  class Session {
+    constructor(firstIndex, length, startTime, endTime, misses) {
+      this.firstIndex = firstIndex; // index of first review in this session
+      this.len = length; // number of reviews in this session
+      this.startTime = startTime; // start time of first review (Date object)
+      this.endTime = endTime; // start(!!) time of final review (Date object)
+      this.misses = misses; // "miss" means one or more incorrect answers (reading or meaning)
+      this.minutes = function () {
+        // number of minutes spent reviewing in this session
+        let raw =
+          endTime - startTime < settings.maxSpeed * 100
+            ? Math.round((this.endTime - this.startTime) / (1000 * 60))
+            : settings.maxSpeed / 2; // assume single review session speed is typical
+        return raw;
+      };
+    }
   }
 
   function findSessions(reviews) {
