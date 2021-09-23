@@ -20,6 +20,8 @@
   const script_id = "ganbarometer";
   const script_name = "Ganbarometer";
 
+  const requiredSettingsVersion = "settings-v0.1"; // version settings independently from script
+
   const defaults = {
     version: "settings-v0.1", // track which version populated the settings
     interval: 72, // Number of hours to summarize reviews over
@@ -34,6 +36,12 @@
   };
 
   // The metrics we want to retrieve and display
+  /*
+   *  Metrics: Everything we want to retrieve, compute, or display
+   *           -- This is the most important object in the script
+   */
+
+  // Initialize the metrics object
   const metrics = {
     reviewed: 0, // total number of items reviewed over interval
     sessions: [], // array of Session objects
@@ -131,9 +139,7 @@
   };
 
   // To be populated by updateSettings()
-  const requiredSettingsVersion = "settings-v0.1"; // Only update when user's saved settings must be overwritten
   let settings = {};
-
   const settingsConfig = {
     script_id: script_id,
     title: script_name,
@@ -316,6 +322,8 @@ Click "OK" to be forwarded to installation instructions.`
   font-weight: 600;
   margin: 0;
   text-align: center;
+  display: inline-block;
+  width: 70%;
 }
 
 .${script_id} p {
@@ -386,12 +394,23 @@ Click "OK" to be forwarded to installation instructions.`
   font-size: 25px;
 }
 
+#gbSpeed {
+  position: relative;
+}
+
+#gbSpeed h2 {
+  font-size: 12px;
+  display: inline-block;
+  width: 30%;
+  text-align: right;
+}
+
 #gbSpeed .chart {
   display: grid;
   grid-template-columns: repeat(${metrics.pareto.length}, 1fr);
   grid-template-rows: repeat(100, 1fr);
   grid-column-gap: 2px;
-  height: 70px;
+  height: 50px;
   min-width: 300px;
   width: 15%;
   background: ${settings.backgroundColor};
@@ -585,7 +604,7 @@ ${metrics.sessions.length} sessions:`
     let barsContainer = document.createElement("div");
     // barsContainer.classList.add("gbSpeed");
     barsContainer.id = "gbSpeed";
-    barsContainer.innerHTML = "<h1>Answer Speed</h1>";
+    barsContainer.innerHTML = `<h1>Review Intervals</h1><h2>Average: ${metrics.secondsPerReview()}s</h2>`;
     let chart = document.createElement("div");
     chart.classList.add("chart");
     barsContainer.appendChild(chart);
@@ -602,7 +621,7 @@ ${metrics.sessions.length} sessions:`
 
     gbSection.append(barsContainer);
 
-    /* 
+    /*
     gauge = gbSection.querySelector("#gbSpeed");
     setGaugeValue(gauge, metrics.speed(), `${metrics.secondsPerReview()}`);
     */
