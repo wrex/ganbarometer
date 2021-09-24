@@ -308,141 +308,148 @@ Click "OK" to be forwarded to installation instructions.`
 
   function loadCSS() {
     css = `
-.${script_id} {
-  display:flex;
-  justify-content: space-around;
-  background-color: ${settings.backgroundColor};
-  border-radius: 5px;
-  overflow: hidden;
-  flex-wrap: wrap;
-}
-
-.${script_id} h1 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-  text-align: center;
-  display: inline-block;
-  width: 70%;
-}
-
-.${script_id} p {
-  font-size: 10px;
-  margin: 0;
-}
-
-.${script_id} label {
-  margin: 0;
-  text-align: center;
-  width: 100%;
-  padding: 0 10px;
-  font-size: 12px;
-  color: #bbb;
-}
-
-.gauge {
-  width: 100%;
-  min-width: 120px;
-  max-width: 150px;
-  padding: 0 10px;
-  color: #004033;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background-color: ${settings.backgroundColor};
-}
-
-.gauge__body {
-  width: 100%;
-  height: 0;
-  padding-bottom: 50%;
-  background: #b4c0be;
-  position: relative;
-  border-top-left-radius: 100% 200%;
-  border-top-right-radius: 100% 200%;
-  overflow: hidden;
-}
-
-.gauge__fill {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: inherit;
-  height: 100%;
-  background: #59c273;
-  transform-origin: center top;
-  transform: rotate(0.25turn);
-  transition: transform 0.2s ease-out;
-}
-
-.gauge__cover {
-  width: 75%;
-  height: 150%;
-  background-color: ${settings.backgroundColor};
-  border-radius: 50%;
-  position: absolute;
-  top: 25%;
-  left: 50%;
-  transform: translateX(-50%);
-
-  /* Text */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 25%;
-  box-sizing: border-box;
-  font-size: 25px;
-}
-
-#gbSpeed {
-  position: relative;
-}
-
-#gbSpeed h2 {
-  font-size: 12px;
-  display: inline-block;
-  width: 30%;
-  text-align: right;
-}
-
-#gbSpeed .chart {
-  display: grid;
-  grid-template-columns: repeat(${metrics.pareto.length}, 1fr);
-  grid-template-rows: repeat(100, 1fr);
-  grid-column-gap: 2px;
-  height: 50px;
-  min-width: 300px;
-  width: 15%;
-  background: ${settings.backgroundColor};
-}
-
-#gbSpeed .bar {
-  border-radius: 0;
-  transition: all 0.6s ease;
-  background-color: #59c273;
-  grid-row-start: 1;
-  box-sizing: border-box;
-  grid-row-end: 101;
-  text-align: center;
-  margin-top: auto;
-}
-
-#gbSpeed .bar span {
-  position: relative;
-  top: -20px;
-  font-size: 10px;
-}
-
-#gbSpeed .bar label {
-  position: absolute;
-  /*width: auto;*/
-  bottom: -23px;
-  font-size: 10px;
-  margin: 0;
-  padding: 0;
-  text-align: center;
-}
-
+    .${script_id} * {
+      box-sizing: border-box;
+    }
+    
+    .${script_id} {
+      display:flex;
+      justify-content: space-around;
+      background-color: ${settings.backgroundColor};
+      border-radius: 5px;
+      overflow: hidden;
+      flex-wrap: wrap;
+    }
+    
+    .${script_id} h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+      text-align: center;
+      display: inline-block;
+      width: 70%;
+    }
+    
+    .${script_id} p {
+      font-size: 10px;
+      margin: 0;
+    }
+    
+    .${script_id} label {
+      margin: 0;
+      text-align: center;
+      width: 100%;
+      font-size: 12px;
+      line-height: 16px;
+      color: #bbb;
+    }
+    
+    .gauge {
+      width: 100%;
+      min-width: 120px;
+      max-width: 150px;
+      height: 125px;
+      padding: 0 10px;
+      color: #004033;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: ${settings.backgroundColor};
+    }
+    
+    .gauge__body {
+      width: 100%;
+      height: 0;
+      padding-bottom: 50%;
+      background: #b4c0be;
+      position: relative;
+      border-top-left-radius: 100% 200%;
+      border-top-right-radius: 100% 200%;
+      overflow: hidden;
+    }
+    
+    .gauge__fill {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: inherit;
+      height: 100%;
+      background: #59c273;
+      transform-origin: center top;
+      transform: rotate(0.25turn);
+      transition: transform 0.2s ease-out;
+    }
+    
+    .gauge__cover {
+      width: 75%;
+      height: 150%;
+      background-color: ${settings.backgroundColor};
+      border-radius: 50%;
+      position: absolute;
+      top: 25%;
+      left: 50%;
+      transform: translateX(-50%);
+    
+      /* Text */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 25%;
+      box-sizing: border-box;
+      font-size: 25px;
+    }
+    
+    #gbSpeed {
+      position: relative;
+      height: 125px;
+    }
+    
+    #gbSpeed h2 {
+      font-size: 12px;
+      display: inline-block;
+      width: 30%;
+      text-align: center;
+      margin: 0;
+    }
+    
+    #gbSpeed .chart {
+      display: grid;
+      grid-template-columns: repeat(${metrics.pareto.length}, 1fr);
+      grid-template-rows: repeat(100, 1fr);
+      grid-column-gap: 2px;
+      height: 65px;
+      min-width: 240px;
+      width: 15%;
+      padding: 5px;
+      background: ${settings.backgroundColor};
+    }
+    
+    #gbSpeed .bar {
+      border-radius: 0;
+      transition: all 0.6s ease;
+      background-color: #59c273;
+      grid-row-start: 1;
+      box-sizing: border-box;
+      grid-row-end: 101;
+      text-align: center;
+      margin-top: auto;
+    }
+    
+    #gbSpeed .bar span {
+      position: relative;
+      top: -20px;
+      font-size: 10px;
+    }
+    
+    #gbSpeed .bar label {
+      position: absolute;
+      bottom: -23px;
+      font-size: 10px;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    
     `;
 
     const gbStyle = document.createElement("style");
@@ -581,18 +588,14 @@ ${metrics.sessions.length} sessions:`
   }
 
   function populateGbSection(gbSection) {
-    let html =
-      `<label>Daily averages for the past ${settings.interval} hours</label>` +
+    gbSection.innerHTML =
       renderGaugeDiv(
         "gbDifficulty",
         "Difficulty",
         `${metrics.apprentice} (${metrics.newKanji}k/${Math.round(
           metrics.missesPerDay()
         )}m)`
-      ) +
-      renderGaugeDiv("gbLoad", "Pace", "reviews/day");
-
-    gbSection.innerHTML = html;
+      ) + renderGaugeDiv("gbLoad", "Pace", "reviews/day");
 
     let gauge = gbSection.querySelector("#gbDifficulty");
     setGaugeValue(gauge, metrics.difficulty());
@@ -619,12 +622,13 @@ ${metrics.sessions.length} sessions:`
       chart.appendChild(bar);
     }
 
+    // add the bars to the end
     gbSection.append(barsContainer);
 
-    /*
-    gauge = gbSection.querySelector("#gbSpeed");
-    setGaugeValue(gauge, metrics.speed(), `${metrics.secondsPerReview()}`);
-    */
+    // Add lable to the end of the section
+    let label = document.createElement("label");
+    label.innerHTML = `<label>Daily averages for the past ${settings.interval} hours</label>`;
+    gbSection.append(label);
   }
 
   // Create an html <section> for our metrics and add to dashboard
