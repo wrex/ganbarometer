@@ -262,8 +262,7 @@ Click "OK" to be forwarded to installation instructions.`
     .ready("ItemData, Apiv2, Menu, Settings")
     .then(loadSettings)
     .then(updateGauges)
-    .then(installMenu)
-    .then(render);
+    .then(installMenu);
 
   // Install our link under [Scripts -> Demo -> Settings Demo]
   function installMenu() {
@@ -533,12 +532,6 @@ Click "OK" to be forwarded to installation instructions.`
     }
   }
 
-  async function render() {
-    await collectMetrics();
-    // Now populate the section and add it to the dashboard
-    insertGbSection();
-  }
-
   function logMetrics(metrics) {
     console.log(
       `------ GanbarOmeter debug output ------
@@ -655,7 +648,9 @@ ${metrics.sessions.length} sessions:`
 
     // Add lable to the end of the section
     let label = document.createElement("label");
-    label.innerHTML = `<label>Daily averages for the past ${settings.interval} hours</label>`;
+    label.innerHTML = settings.interval
+      ? `<label>Daily averages for the past ${settings.interval} hours</label>`
+      : `<label><strong>LOADING DATA FROM WANIKANI API</strong></label>`;
     gbSection.append(label);
 
     return gbSection;
