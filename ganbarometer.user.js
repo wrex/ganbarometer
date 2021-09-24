@@ -172,8 +172,7 @@
         label: "Review history hours",
         default: defaults.interval,
         hover_tip: "Number of hours to summarize reviews over (1 - 168)",
-        min: 1,
-        max: 168,
+        validate: validateInterval,
       },
       sessionIntervalMax: {
         type: "number",
@@ -298,6 +297,16 @@ Click "OK" to be forwarded to installation instructions.`
     return args;
   }
   */
+
+  function validateInterval(value, config) {
+    if (value >= 24 && value % 24 == 0) {
+      return true;
+    } else if (value < 24 && value > 1) {
+      return true;
+    } else {
+      return "Interval must be between 1-24 or a multiple of 24 hours";
+    }
+  }
 
   function debugLog() {
     // Optionally log what we've extracted
