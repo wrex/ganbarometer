@@ -20,6 +20,9 @@
   const script_id = "ganbarometer";
   const script_name = "Ganbarometer";
 
+  // separate version for the settings themselves
+  // update this to erase any user's stored settings and replace with the
+  // defaults
   const requiredSettingsVersion = "settings-v0.1"; // version settings independently from script
 
   const defaults = {
@@ -38,7 +41,7 @@
   // The metrics we want to retrieve and display
   /*
    *  Metrics: Everything we want to retrieve, compute, or display
-   *           -- This is the most important object in the script
+   *  -- This is the most important object in the script
    */
 
   // Initialize the metrics object
@@ -138,12 +141,12 @@
     },
   };
 
-  // To be populated by updateSettings()
+  // To be populated by updateGauges()
   let settings = {};
   const settingsConfig = {
     script_id: script_id,
     title: script_name,
-    on_save: updateSettings,
+    on_save: updateGauges,
     content: {
       interval: {
         type: "number",
@@ -232,6 +235,14 @@
 
   // ----------------------------------------------------------------------
 
+  // Load CSS
+  // then add section and populate gauges with zeros
+  // then add settings menu and retrieve wkof ItemData
+  // then calculate metrics
+  // then update gauges
+
+  loadCSS();
+
   // Ensure WKOF is installed
   if (!wkof) {
     let response = confirm(
@@ -250,9 +261,8 @@ Click "OK" to be forwarded to installation instructions.`
   wkof
     .ready("ItemData, Apiv2, Menu, Settings")
     .then(loadSettings)
-    .then(updateSettings)
+    .then(updateGauges)
     .then(installMenu)
-    .then(loadCSS)
     .then(render);
 
   // Install our link under [Scripts -> Demo -> Settings Demo]
@@ -274,7 +284,7 @@ Click "OK" to be forwarded to installation instructions.`
     return wkof.Settings.load(script_id, defaults);
   }
 
-  async function updateSettings(loadedSettings) {
+  async function updateGauges(loadedSettings) {
     if (
       typeof loadedSettings.version == "undefined" ||
       loadedSettings.version != requiredSettingsVersion
@@ -304,10 +314,8 @@ Click "OK" to be forwarded to installation instructions.`
     }
   }
 
-  let css = "";
-
   function loadCSS() {
-    css = `
+    let css = `
     .${script_id} * {
       box-sizing: border-box;
     }
@@ -315,7 +323,11 @@ Click "OK" to be forwarded to installation instructions.`
     .${script_id} {
       display:flex;
       justify-content: space-around;
-      background-color: ${settings.backgroundColor};
+      background-color: ${
+        settings.backgroundColor
+          ? settings.backgroundColor
+          : defaults.backgroundColor
+      };
       border-radius: 5px;
       overflow: hidden;
       flex-wrap: wrap;
@@ -354,7 +366,11 @@ Click "OK" to be forwarded to installation instructions.`
       display: flex;
       flex-direction: column;
       align-items: center;
-      background-color: ${settings.backgroundColor};
+      background-color: ${
+        settings.backgroundColor
+          ? settings.backgroundColor
+          : defaults.backgroundColor
+      };
     }
     
     .gauge__body {
@@ -383,7 +399,11 @@ Click "OK" to be forwarded to installation instructions.`
     .gauge__cover {
       width: 75%;
       height: 150%;
-      background-color: ${settings.backgroundColor};
+      background-color: ${
+        settings.backgroundColor
+          ? settings.backgroundColor
+          : defaults.backgroundColor
+      };
       border-radius: 50%;
       position: absolute;
       top: 25%;
@@ -421,7 +441,11 @@ Click "OK" to be forwarded to installation instructions.`
       min-width: 240px;
       width: 15%;
       padding: 5px;
-      background: ${settings.backgroundColor};
+      background: ${
+        settings.backgroundColor
+          ? settings.backgroundColor
+          : defaults.backgroundColor
+      };
     }
     
     #gbSpeed .bar {
