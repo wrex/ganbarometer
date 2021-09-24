@@ -236,12 +236,12 @@
   // ----------------------------------------------------------------------
 
   // Load CSS
+  loadCSS();
   // then add section and populate gauges with zeros
+  let gbSection = insertGbSection();
   // then add settings menu and retrieve wkof ItemData
   // then calculate metrics
   // then update gauges
-
-  loadCSS();
 
   // Ensure WKOF is installed
   if (!wkof) {
@@ -604,11 +604,15 @@ ${metrics.sessions.length} sessions:`
     console.log(`------ End GanbarOmeter ------`);
   }
 
-  function createGbSection() {
-    // Create a section for our content
-    const gbSection = document.createElement("Section");
-    gbSection.classList.add(`${script_id}`);
-    return gbSection;
+  // Create an html <section> for our metrics and add to dashboard
+  function insertGbSection() {
+    let section = document.createElement("Section");
+    section.classList.add(`${script_id}`);
+    populateGbSection(section);
+    // Now add our new section at the just before the forum list
+    document.querySelector(".progress-and-forecast").before(section);
+
+    return section;
   }
 
   function populateGbSection(gbSection) {
@@ -653,14 +657,8 @@ ${metrics.sessions.length} sessions:`
     let label = document.createElement("label");
     label.innerHTML = `<label>Daily averages for the past ${settings.interval} hours</label>`;
     gbSection.append(label);
-  }
 
-  // Create an html <section> for our metrics and add to dashboard
-  function insertGbSection(section) {
-    section = createGbSection();
-    populateGbSection(section);
-    // Now add our new section at the just before the forum list
-    document.querySelector(".progress-and-forecast").before(section);
+    return gbSection;
   }
 
   function renderGaugeDiv(id, title, text) {
