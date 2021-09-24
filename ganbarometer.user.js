@@ -18,24 +18,29 @@
 
   // This script identifiers for caches, etc.
   const script_id = "ganbarometer";
-  const script_name = "Ganbarometer";
+  const script_name = "GanbarOmeter";
+
+  // Set to true to invoke debugger before exiting script
+  // (separate from console logging with settings.debug)
+  const useDebugger = false;
 
   // separate version for the settings themselves
   // update this to erase any user's stored settings and replace with the
   // defaults
-  const requiredSettingsVersion = "settings-v0.1"; // version settings independently from script
+  const requiredSettingsVersion = "settings-v2.0"; // version settings independently from script
 
   const defaults = {
-    version: "settings-v0.1", // track which version populated the settings
+    version: "settings-v2.0", // track which version populated the settings
     interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 2, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
     newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
     normalMisses: 20, // no additional weighting for up to 20% of daily reviews
     extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
-    maxLoad: 300, // maximum number of reviews per day in load graph (50% is normal)
+    maxPace: 300, // maximum number of reviews per day in load graph (50% is normal)
     maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
     backgroundColor: "#f4f4f4", // section background color
+    debug: false,
   };
 
   // The metrics we want to retrieve and display
@@ -83,19 +88,40 @@
       return min;
     },
 
-    // avg number of review items answered incorrectly per day
-    missesPerDay: function () {
-      let s = 0;
-      for (let sess of this.sessions) {
-        s += sess.misses;
+    // Total review period from start of first session
+    // to end of last session (in days)
+    reviewDays: function () {
+      if (this.sessions.length > 0) {
+        let start = this.sessions[0].startTime;
+        let end = this.sessions[this.sessions.length - 1].endTime;
+        return Math.round((end - start) / (1000 * 60 * 60 * 24));
+      } else {
+        return 0;
       }
-      s = (s * 24) / settings.interval;
-      return s;
+    },
+
+    // avg number of incorrect reviews per day (over settings.interval)
+    missesPerDay: function () {
+      let missCount = 0;
+      for (let sess of this.sessions) {
+        missCount += sess.misses;
+      }
+      if (this.reviewDays() < 1) {
+        // less than one day of reviews
+        return missCount;
+      } else {
+        return Math.round(missCount / (settings.interval / 24));
+      }
     },
 
     // reviews-per-day averaged over the interval
     reviewsPerDay: function () {
-      return Math.round((this.reviewed * 24) / settings.interval);
+      if (this.reviewDays() < 1) {
+        // Less than one day of reviews
+        return this.reviewed;
+      } else {
+        return Math.round(this.reviewed / (settings.interval / 24));
+      }
     },
 
     // seconds-per-review averaged over the sessions
@@ -126,17 +152,10 @@
       return raw > 1 ? 1 : raw;
     },
 
-    // load() returns a value betweeen 0 and 1 representing the percentage of reviews
-    // per day relative to maxLoad
-    load: function () {
-      let raw = this.reviewsPerDay() / settings.maxLoad;
-      return raw > 1 ? 1 : raw;
-    },
-
-    // speed() returns a value between 0 and 1 representing the percentage of seconds
-    // per review relative to maxSpeed
-    speed: function () {
-      let raw = this.secondsPerReview() / settings.maxSpeed;
+    // pace() returns a value betweeen 0 and 1 representing the percentage of reviews
+    // per day relative to maxPace
+    pace: function () {
+      let raw = this.reviewsPerDay() / settings.maxPace;
       return raw > 1 ? 1 : raw;
     },
   };
@@ -200,10 +219,10 @@
         min: 0,
         max: 0.1,
       },
-      maxLoad: {
+      maxPace: {
         type: "number",
         label: "Maximum reviews per day",
-        default: defaults.maxLoad,
+        default: defaults.maxPace,
         hover_tip:
           "This should be 2X the typical number of reviews/day (10 - 500)",
         min: 10,
@@ -230,18 +249,24 @@
         default: defaults.debug,
         hover_tip: "Display debug info on console?",
       },
+      version: {
+        type: "input",
+        subtype: "hidden",
+        label: "",
+        default: defaults.version,
+      },
     },
   };
 
   // ----------------------------------------------------------------------
 
-  // Load CSS
+  // ------------- Begin main execution sequence --------------------------
+
+  // First load the styling
   loadCSS();
-  // then add section and populate gauges with zeros
-  let gbSection = insertGbSection();
-  // then add settings menu and retrieve wkof ItemData
-  // then calculate metrics
-  // then update gauges
+
+  // then add section and populate gauges with dummy data
+  insertGbSection();
 
   // Ensure WKOF is installed
   if (!wkof) {
@@ -264,7 +289,27 @@ Click "OK" to be forwarded to installation instructions.`
     .then(updateGauges)
     .then(installMenu);
 
-  // Install our link under [Scripts -> Demo -> Settings Demo]
+  // ------------ End of main excecution sequence -------------------------
+  // ------------ Begin supporting functions ------------------------------
+
+  /*
+  function addDebug(args) {
+    debugger;
+    return args;
+  }
+  */
+
+  function debugLog() {
+    // Optionally log what we've extracted
+    if (settings.debug) {
+      logMetrics(metrics);
+    }
+    if (useDebugger) {
+      debugger;
+    }
+  }
+
+  // Install our link under [Settings -> script_name ]
   function installMenu() {
     wkof.Menu.insert_script_link({
       name: script_name,
@@ -283,6 +328,7 @@ Click "OK" to be forwarded to installation instructions.`
     return wkof.Settings.load(script_id, defaults);
   }
 
+  // Update the displayed gauges with current metrics
   async function updateGauges(loadedSettings) {
     if (
       typeof loadedSettings.version == "undefined" ||
@@ -294,7 +340,7 @@ Click "OK" to be forwarded to installation instructions.`
       );
 
       // overwrite user's stored settings
-      loadedSettings = defaults;
+      wkof.settings.ganbarometer = defaults;
       wkof.Settings.save("ganbarometer");
 
       // use defaults in this session
@@ -311,6 +357,9 @@ Click "OK" to be forwarded to installation instructions.`
       await collectMetrics();
       populateGbSection(document.querySelector(`.${script_id}`));
     }
+
+    // log and debug as requested
+    debugLog();
   }
 
   function loadCSS() {
@@ -481,10 +530,7 @@ Click "OK" to be forwarded to installation instructions.`
     document.querySelector("head").append(gbStyle);
   }
 
-  /*
-   * ********* MAIN function to calculate and display metrics ********
-   */
-
+  // Retrieve reviews from API and calculate metrics
   async function collectMetrics() {
     // Get all reviews within interval hours of now
     let firstReviewDate = new Date(
@@ -495,17 +541,17 @@ Click "OK" to be forwarded to installation instructions.`
     };
 
     let reviewCollection = await wkof.Apiv2.fetch_endpoint("reviews", options);
-    let newReviews = reviewCollection.data;
+    let reviews = reviewCollection.data;
 
     // Save our first metric
-    metrics.reviewed = newReviews.length;
+    metrics.reviewed = reviews.length;
 
     // Calculate and save our second set of metrics
     // findSessions() returns an Array of Session objects
     // Also builds metrics.pareto
-    metrics.sessions = findSessions(newReviews);
+    metrics.sessions = findSessions(reviews);
 
-    // Finally, retrieve and save the apprentice and newKanji metrics
+    // Retrieve and save the apprentice metrics
     let config = {
       wk_items: {
         filters: {
@@ -513,8 +559,12 @@ Click "OK" to be forwarded to installation instructions.`
         },
       },
     };
+
     let items = await wkof.ItemData.get_items(config);
+
     metrics.apprentice = items.length;
+
+    // Finally, retrieve and save the number of kanji in stages 1 and 2
     config = {
       wk_items: {
         filters: {
@@ -525,11 +575,6 @@ Click "OK" to be forwarded to installation instructions.`
     };
     items = await wkof.ItemData.get_items(config);
     metrics.newKanji = items.length;
-
-    // Optionally log what we've extracted
-    if (settings.debug) {
-      logMetrics(metrics);
-    }
   }
 
   function logMetrics(metrics) {
@@ -545,13 +590,14 @@ settings:
   - newKanjiWeighting: ${settings.newKanjiWeighting}
   - normalMisses: ${settings.normalMisses}
   - extraMissesWeighting: ${settings.extraMissesWeighting}
-  - maxLoad: ${settings.maxLoad}
+  - maxPace: ${settings.maxPace}
   - maxSpeed: ${settings.maxSpeed}
   - backgroundColor: ${settings.backgroundColor}
 
 ${metrics.reviewed} reviews in ${settings.interval} hours
-${Math.round(10 * metrics.missesPerDay()) / 10} misses per day
+${Math.round(10 * metrics.missesPerDay()) / 10} misses per day on average
 ${metrics.minutes()} total minutes
+${Math.round(1000 * metrics.reviewDays()) / 1000} review days
 ${metrics.sessions.length} sessions:`
     );
 
@@ -572,17 +618,12 @@ ${metrics.sessions.length} sessions:`
       lastEndTime = s.endTime;
     });
 
-    console.log("Pareto of review-to-review intervals:");
-    metrics.pareto.forEach((bucket) => {
-      console.log(`  ${bucket.name}: ${bucket.count}`);
-    });
-
     console.log(
       `${metrics.apprentice} apprentice ${metrics.newKanji} newKanji`
     );
 
     console.log(
-      `${metrics.reviewsPerDay()} reviews per day (0 - ${settings.maxLoad}`
+      `${metrics.reviewsPerDay()} reviews per day (0 - ${settings.maxPace}`
     );
 
     console.log(
@@ -591,9 +632,16 @@ ${metrics.sessions.length} sessions:`
       })`
     );
 
-    console.log(`Difficulty: ${metrics.difficulty()} (0-1)`);
-    console.log(`Load: ${metrics.load()}`);
-    console.log(`Speed: ${metrics.speed()}`);
+    console.log(
+      `Difficulty: ${Math.round(1000 * metrics.difficulty()) / 1000} (0-1)`
+    );
+    console.log(`Pace: ${metrics.pace()}`);
+    console.log(
+      `Review-to-review intervals (average: ${metrics.secondsPerReview()}s):`
+    );
+    metrics.pareto.forEach((bucket) => {
+      console.log(`  ${bucket.name}: ${bucket.count}`);
+    });
     console.log(`------ End GanbarOmeter ------`);
   }
 
@@ -622,7 +670,7 @@ ${metrics.sessions.length} sessions:`
     setGaugeValue(gauge, metrics.difficulty());
 
     gauge = gbSection.querySelector("#gbLoad");
-    setGaugeValue(gauge, metrics.load(), `${metrics.reviewsPerDay()}`);
+    setGaugeValue(gauge, metrics.pace(), `${metrics.reviewsPerDay()}`);
 
     // Now add the divs for the speed bar chart
     let barsContainer = document.createElement("div");
@@ -650,7 +698,7 @@ ${metrics.sessions.length} sessions:`
     let label = document.createElement("label");
     label.innerHTML = settings.interval
       ? `<label>Daily averages for the past ${settings.interval} hours</label>`
-      : `<label><strong>LOADING DATA FROM WANIKANI API</strong></label>`;
+      : `<label><strong>LOADING REVIEW DATA FROM WANIKANI API&hellip;</strong></label>`;
     gbSection.append(label);
 
     return gbSection;
@@ -672,8 +720,10 @@ ${metrics.sessions.length} sessions:`
     value = value < 0 ? 0 : value;
     value = value > 1 ? 1 : value;
 
+    // Use displayValue if passed, otherwise just "xx%"
     let display = displayValue ? displayValue : `${Math.round(value * 100)}%`;
 
+    // Rotate the gauge__fill rectangle the appropriate number of degrees
     gauge.querySelector(".gauge__fill").style.transform = `rotate(${
       value / 2
     }turn)`;
@@ -688,15 +738,6 @@ ${metrics.sessions.length} sessions:`
     }
   }
 
-  // Function to return a filtered array of reviews
-  // older than the specified number of hours
-  function filterRecent(reviews, hours) {
-    return reviews.filter(
-      // a[0] = creationDate
-      (a) => a[0] > Date.now() - hours * 60 * 60 * 1000
-    );
-  }
-
   // A Session object holds an index into an array of reviews, plus a length
   // Define a Session object
   class Session {
@@ -706,13 +747,15 @@ ${metrics.sessions.length} sessions:`
       this.startTime = startTime; // start time of first review (Date object)
       this.endTime = endTime; // start(!!) time of final review (Date object)
       this.misses = misses; // "miss" means one or more incorrect answers (reading or meaning)
+
+      // number of minutes spent reviewing in this session
       this.minutes = function () {
-        // number of minutes spent reviewing in this session
-        let raw =
-          endTime - startTime < settings.maxSpeed * 100
-            ? Math.round((this.endTime - this.startTime) / (1000 * 60))
-            : settings.maxSpeed / 2; // assume single review session speed is typical
-        return raw;
+        // might be just one review in session or VERY short timespan between
+        // start and end, so use a heuristic that if span is less than 20% of
+        // maxSpeed that the actual time to answer was typical (maxSpeed/2)
+        return (endTime - startTime) / 1000 < settings.maxSpeed * 0.2
+          ? Math.round((this.endTime - this.startTime) / (1000 * 60))
+          : settings.maxSpeed / 2;
       };
     }
   }
@@ -745,13 +788,17 @@ ${metrics.sessions.length} sessions:`
       ) {
         // Still within a session, so increment the length
         curSession.len += 1;
+
         // "miss" means one or more incorrect meaning or reading answers
-        curSession.misses +=
+        // but the count of incorrect answers doesn't matter: any incorrect
+        // answers mean the item was "missed"
+        let missCount =
           review.data.incorrect_meaning_answers +
-            review.data.incorrect_reading_answers >
-          0
-            ? 1
-            : 0;
+          review.data.incorrect_reading_answers;
+        if (missCount > 0) {
+          curSession.misses++;
+        }
+
         // Update endTime the the time of this review
         curSession.endTime = new Date(review.data_updated_at);
       } else {
@@ -760,13 +807,15 @@ ${metrics.sessions.length} sessions:`
         // And create a new curSession of length 1 for this review
         let newIndex = curSession.firstIndex + curSession.len;
         let newDate = new Date(review.data_updated_at);
-        let curMisses =
+        let missCount =
           review.incorrect_meaning_answers +
-            review.data.incorrect_reading_answers >
-          0
-            ? 1
-            : 0;
-        curSession = new Session(newIndex, 1, newDate, newDate, curMisses);
+          review.data.incorrect_reading_answers;
+        if (missCount > 0) {
+          //                       first,  len, start,   end,     misses
+          curSession = new Session(newIndex, 1, newDate, newDate, 1);
+        } else {
+          curSession = new Session(newIndex, 1, newDate, newDate, 0);
+        }
       }
     });
     // Don't forget the last session when we fall out of the loop
