@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.1dev
 // @description  Add Difficulty, Load, and Speed gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -27,10 +27,10 @@
   // separate version for the settings themselves
   // update this to erase any user's stored settings and replace with the
   // defaults
-  const requiredSettingsVersion = "settings-v2.0"; // version settings independently from script
+  const requiredSettingsVersion = "settings-v2.1"; // version settings independently from script
 
   const defaults = {
-    version: "settings-v2.0", // track which version populated the settings
+    version: "settings-v2.1", // track which version populated the settings
     interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 2, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
@@ -38,7 +38,6 @@
     normalMisses: 20, // no additional weighting for up to 20% of daily reviews
     extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
     maxPace: 300, // maximum number of reviews per day in load graph (50% is normal)
-    maxSpeed: 30, // maximum number of seconds per review in speed graph (50% is normal)
     backgroundColor: "#f4f4f4", // section background color
     debug: false,
   };
@@ -227,15 +226,6 @@
         min: 10,
         max: 500,
       },
-      maxSpeed: {
-        type: "number",
-        label: "Maximum number of seconds per review",
-        default: defaults.maxSpeed,
-        hover_tip:
-          "This should be 2x the typical number of seconds/review (10 - 60)",
-        min: 10,
-        max: 60,
-      },
       backgroundColor: {
         type: "color",
         label: "Background color",
@@ -360,6 +350,7 @@ Click "OK" to be forwarded to installation instructions.`
     }
 
     // new settings, so refresh the content
+    loadCSS();
     let gbSection = document.querySelector(`.${script_id}`);
     if (gbSection != null) {
       // already rendered, so repopulate
@@ -533,6 +524,13 @@ Click "OK" to be forwarded to installation instructions.`
     
     `;
 
+    // Remove the style if already present
+    if (
+      typeof document.getElementsByTagName("style").ganbarometer !== "undefined"
+    ) {
+      document.getElementsByTagName("style").ganbarometer.remove;
+    }
+
     const gbStyle = document.createElement("style");
     gbStyle.id = script_id;
     gbStyle.innerHTML = css;
@@ -600,7 +598,6 @@ settings:
   - normalMisses: ${settings.normalMisses}
   - extraMissesWeighting: ${settings.extraMissesWeighting}
   - maxPace: ${settings.maxPace}
-  - maxSpeed: ${settings.maxSpeed}
   - backgroundColor: ${settings.backgroundColor}
 
 ${metrics.reviewed} reviews in ${settings.interval} hours
@@ -635,11 +632,7 @@ ${metrics.sessions.length} sessions:`
       `${metrics.reviewsPerDay()} reviews per day (0 - ${settings.maxPace}`
     );
 
-    console.log(
-      `${metrics.secondsPerReview()} seconds per review (0 - ${
-        settings.maxSpeed
-      })`
-    );
+    console.log(`${metrics.secondsPerReview()} seconds per review settings`);
 
     console.log(
       `Difficulty: ${Math.round(1000 * metrics.difficulty()) / 1000} (0-1)`
@@ -760,11 +753,10 @@ ${metrics.sessions.length} sessions:`
       // number of minutes spent reviewing in this session
       this.minutes = function () {
         // might be just one review in session or VERY short timespan between
-        // start and end, so use a heuristic that if span is less than 20% of
-        // maxSpeed that the actual time to answer was typical (maxSpeed/2)
-        return (endTime - startTime) / 1000 < settings.maxSpeed * 0.2
+        // start and end, so return 15 seconds for any value less than 15 seconds
+        return (endTime - startTime) / 1000 > 15
           ? Math.round((this.endTime - this.startTime) / (1000 * 60))
-          : settings.maxSpeed / 2;
+          : 15 / 60;
       };
     }
   }
