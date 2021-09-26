@@ -705,11 +705,11 @@ ${metrics.sessions.length} sessions:`
     let diffLabel = `${metrics.apprentice}A (${kanjiWeightLabel}${missLabel})`;
 
     // Pace label shows reviews/day and number of sessions
-    let paceLabel = `rev./day (${metrics.sessions.length} sess.)`;
+    let paceLabel = `${metrics.sessions.length} sessions, ${metrics.reviewed} reviews`;
 
     gbSection.innerHTML =
       renderGaugeDiv("gbDifficulty", "Difficulty", diffLabel) +
-      renderGaugeDiv("gbLoad", "Pace", paceLabel);
+      renderGaugeDiv("gbLoad", "Reviews/day", paceLabel);
 
     let gauge = gbSection.querySelector("#gbDifficulty");
     setGaugeValue(gauge, metrics.difficulty());
@@ -739,7 +739,7 @@ ${metrics.sessions.length} sessions:`
     // add the bars to the end
     gbSection.append(barsContainer);
 
-    // Add lable to the end of the section
+    // Add label to the end of the section
     let label = document.createElement("label");
     label.innerHTML = settings.interval
       ? `<label>Daily averages for the past ${settings.interval} hours</label>`
