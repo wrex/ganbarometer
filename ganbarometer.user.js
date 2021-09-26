@@ -705,7 +705,9 @@ ${metrics.sessions.length} sessions:`
     let diffLabel = `${metrics.apprentice}A (${kanjiWeightLabel}${missLabel})`;
 
     // Pace label shows reviews/day and number of sessions
-    let paceLabel = `${metrics.sessions.length} sessions, ${metrics.reviewed} reviews`;
+    let paceLabel = `${metrics.sessions.length} session${
+      metrics.sessions.length > 1 ? "s" : ""
+    }, ${metrics.reviewed} reviews`;
 
     gbSection.innerHTML =
       renderGaugeDiv("gbDifficulty", "Difficulty", diffLabel) +
