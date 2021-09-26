@@ -27,7 +27,7 @@
   // separate version for the settings themselves
   // update this to erase any user's stored settings and replace with the
   // defaults
-  const requiredSettingsVersion = "settings-v2.1dev"; // version settings independently from script
+  const requiredSettingsVersion = "settings-v2.1devO"; // version settings independently from script
 
   const defaults = {
     version: requiredSettingsVersion, // track which version populated the settings
@@ -39,6 +39,10 @@
     extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
     maxPace: 300, // maximum number of reviews per day in load graph (50% is normal)
     backgroundColor: "#f4f4f4", // section background color
+    bucketCount: 9,
+    bucketLabels:
+      '["10s", "20s", "30s", "1m", "1.5m", "2m", "5m", "10m", "&gt;10m"]',
+    bucketStartSeconds: "[ 0, 10, 20, 30, 60, 90, 120, 300, 600]",
     debug: false,
   };
 
@@ -55,18 +59,16 @@
     apprentice: 0, // total number of items currently in Apprentice (stages 1-4)
     newKanji: 0, // total number of radicals & kanji in stages 1 or 2
     pareto: [
-      // buckets every 15 seconds up to 2 minutes,
-      // a bucket for 2 to 10 minutes, then a bucket for everything > 10 min
       // name, rangeStart in seconds, count
-      { name: `10"`, rangeStart: 0, count: 0 }, // 0 to 10 seconds
-      { name: `20"`, rangeStart: 10, count: 0 }, // 10 to 20 seconds
-      { name: `30"`, rangeStart: 20, count: 0 }, // 20 to 30 seconds
-      { name: `1'`, rangeStart: 30, count: 0 }, // 30 to 1 min
-      { name: `1'30"`, rangeStart: 60, count: 0 }, // 1' to 1'30"
-      { name: `2'`, rangeStart: 90, count: 0 }, // 1'30" to 2'
-      { name: `5'`, rangeStart: 120, count: 0 }, // 2' to 5'
-      { name: `10'`, rangeStart: 300, count: 0 }, // 5' to 10'
-      { name: `&gt;10'`, rangeStart: 600, count: 0 }, // > 10 min
+      // { name: `10"`, rangeStart: 0, count: 0 }, // 0 to 10 seconds
+      // { name: `20"`, rangeStart: 10, count: 0 }, // 10 to 20 seconds
+      // { name: `30"`, rangeStart: 20, count: 0 }, // 20 to 30 seconds
+      // { name: `1'`, rangeStart: 30, count: 0 }, // 30 to 1 min
+      // { name: `1'30"`, rangeStart: 60, count: 0 }, // 1' to 1'30"
+      // { name: `2'`, rangeStart: 90, count: 0 }, // 1'30" to 2'
+      // { name: `5'`, rangeStart: 120, count: 0 }, // 2' to 5'
+      // { name: `10'`, rangeStart: 300, count: 0 }, // 5' to 10'
+      // { name: `&gt;10'`, rangeStart: 600, count: 0 }, // > 10 min
     ],
 
     maxParetoValue: function () {
@@ -256,6 +258,32 @@
         min: 10,
         max: 500,
       },
+      interval_section: {
+        type: "section",
+        label: "Review intervals bar-graph",
+      },
+      bucketCount: {
+        type: "number",
+        label: "Number of interval buckets",
+        default: defaults.bucketCount,
+        hover_tip: "Number of buckets for the interval breakdown (2-10)",
+        min: 2,
+        max: 10,
+      },
+      bucketLabels: {
+        type: "text",
+        label: "Bucket labels",
+        default: defaults.bucketLabels,
+        hover_tip:
+          "Bucket labels (JSON array). Length must match number of interval buckets",
+      },
+      bucketStartSeconds: {
+        type: "text",
+        label: "Starting seconds for each bucket",
+        default: defaults.bucketStartSeconds,
+        hover_tip:
+          "Starting seconds (JSON array). Length must match number of interval buckets",
+      },
       divider: {
         type: "divider",
       },
@@ -353,28 +381,22 @@ Click "OK" to be forwarded to installation instructions.`
     metrics.sessions = [];
     metrics.apprentice = 0;
     metrics.newKanji = 0;
-    metrics.pareto = [
-      // buckets every 15 seconds up to 2 minutes,
-      // a bucket for 2 to 10 minutes, then a bucket for everything > 10 min
-      // name, rangeStart in seconds, count
-      { name: `10"`, rangeStart: 0, count: 0 }, // 0 to 10 seconds
-      { name: `20"`, rangeStart: 10, count: 0 }, // 10 to 20 seconds
-      { name: `30"`, rangeStart: 20, count: 0 }, // 20 to 30 seconds
-      { name: `1'`, rangeStart: 30, count: 0 }, // 30 to 1 min
-      { name: `1'30"`, rangeStart: 60, count: 0 }, // 1' to 1'30"
-      { name: `2'`, rangeStart: 90, count: 0 }, // 1'30" to 2'
-      { name: `5'`, rangeStart: 120, count: 0 }, // 2' to 5'
-      { name: `10'`, rangeStart: 300, count: 0 }, // 5' to 10'
-      { name: `&gt;10'`, rangeStart: 600, count: 0 }, // > 10 min
-    ];
+    metrics.pareto = [];
+    // Populate pareto with buckets from settings
+    let count = settings.bucketCount;
+    let labels = JSON.parse(settings.bucketLabels);
+    let startSeconds = JSON.parse(settings.bucketStartSeconds);
+    for (let i = 0; i < count; i++) {
+      metrics.pareto.push({
+        name: labels[i],
+        rangeStart: startSeconds[i],
+        count: 0,
+      });
+    }
   }
 
   // Update the displayed gauges with current metrics
   async function updateGauges(loadedSettings) {
-    // updateGauges will be executed whenever settings change, etc.
-    // Ensure metrics are cleared before continuing.
-    resetMetrics();
-
     if (
       typeof loadedSettings.version == "undefined" ||
       loadedSettings.version != requiredSettingsVersion
@@ -394,6 +416,10 @@ Click "OK" to be forwarded to installation instructions.`
       // already loaded settings with the required version
       settings = loadedSettings;
     }
+
+    // updateGauges will be executed whenever settings change, etc.
+    // Ensure metrics are cleared before continuing.
+    resetMetrics();
 
     // new settings, so refresh the content
     loadCSS();
