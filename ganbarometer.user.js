@@ -27,15 +27,15 @@
   // separate version for the settings themselves
   // update this to erase any user's stored settings and replace with the
   // defaults
-  const requiredSettingsVersion = "settings-v2.1"; // version settings independently from script
+  const requiredSettingsVersion = "settings-v2.1dev"; // version settings independently from script
 
   const defaults = {
-    version: "settings-v2.1", // track which version populated the settings
+    version: requiredSettingsVersion, // track which version populated the settings
     interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 2, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
     newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
-    normalMisses: 20, // no additional weighting for up to 20% of daily reviews
+    normalMissPercent: 20, // no additional weighting for up to 20% of daily reviews
     extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
     maxPace: 300, // maximum number of reviews per day in load graph (50% is normal)
     backgroundColor: "#f4f4f4", // section background color
@@ -99,18 +99,33 @@
       }
     },
 
+    // Total number of misses across all sessions
+    totalMisses: function () {
+      return this.sessions.reduce(function (prev, cur) {
+        return prev + cur.misses;
+      }, 0);
+    },
+
     // avg number of incorrect reviews per day (over settings.interval)
     missesPerDay: function () {
-      let missCount = 0;
-      for (let sess of this.sessions) {
-        missCount += sess.misses;
-      }
       if (this.reviewDays() < 1) {
         // less than one day of reviews
-        return missCount;
+        return this.totalMisses();
       } else {
-        return Math.round(missCount / (settings.interval / 24));
+        return Math.round(this.totalMisses() / (settings.interval / 24));
       }
+    },
+
+    // allowed (unweighted) number of misses per day
+    allowedMissesPerDay: function () {
+      return Math.round(
+        this.reviewsPerDay() * (settings.normalMissPercent / 100)
+      );
+    },
+
+    // misses above those allowed per day (for weighting)
+    extraMissesPerDay: function () {
+      return this.missesPerDay() - this.allowedMissesPerDay();
     },
 
     // reviews-per-day averaged over the interval
@@ -140,12 +155,9 @@
       raw = raw * (1 + this.newKanji * settings.newKanjiWeighting);
 
       // Heuristic 2: missed items are harder than other apprentice items
-      let allowedMisses = Math.round(
-        (settings.normalMisses / 100) * this.reviewsPerDay()
-      );
-      let extraMisses = this.missesPerDay() - allowedMisses;
-      if (extraMisses > 0) {
-        raw = raw * (1 + extraMisses * settings.extraMissesWeighting);
+      if (this.extraMissesPerDay() > 0) {
+        raw =
+          raw * (1 + this.extraMissesPerDay() * settings.extraMissesWeighting);
       }
 
       return raw > 1 ? 1 : raw;
@@ -199,10 +211,10 @@
         min: 0,
         max: 0.1,
       },
-      normalMisses: {
+      normalMissPercent: {
         type: "number",
         label: "Typical percentage of items missed during reviews",
-        default: defaults.normalMisses,
+        default: defaults.normalMissPercent,
         hover_tip:
           "Only misses beyond this percentage are weighted more heavily (0 - 50)",
         min: 0,
@@ -276,17 +288,11 @@ Click "OK" to be forwarded to installation instructions.`
     .ready("ItemData, Apiv2, Menu, Settings")
     .then(loadSettings)
     .then(updateGauges)
-    .then(installMenu);
+    .then(installMenu)
+    .then(debugLog);
 
   // ------------ End of main excecution sequence -------------------------
   // ------------ Begin supporting functions ------------------------------
-
-  /*
-  function addDebug(args) {
-    debugger;
-    return args;
-  }
-  */
 
   function validateInterval(value, config) {
     if (value >= 24 && value % 24 == 0) {
@@ -382,9 +388,6 @@ Click "OK" to be forwarded to installation instructions.`
       await collectMetrics();
       populateGbSection(document.querySelector(`.${script_id}`));
     }
-
-    // log and debug as requested
-    debugLog();
   }
 
   function loadCSS() {
@@ -620,7 +623,7 @@ settings:
   - sessionIntervalMax: ${settings.sessionIntervalMax}
   - normalApprenticeQty: ${settings.normalApprenticeQty}
   - newKanjiWeighting: ${settings.newKanjiWeighting}
-  - normalMisses: ${settings.normalMisses}
+  - normalMissPercent: ${settings.normalMissPercent}
   - extraMissesWeighting: ${settings.extraMissesWeighting}
   - maxPace: ${settings.maxPace}
   - backgroundColor: ${settings.backgroundColor}
@@ -654,7 +657,7 @@ ${metrics.sessions.length} sessions:`
     );
 
     console.log(
-      `${metrics.reviewsPerDay()} reviews per day (0 - ${settings.maxPace}`
+      `${metrics.reviewsPerDay()} reviews per day (0 - ${settings.maxPace})`
     );
 
     console.log(`${metrics.secondsPerReview()} seconds per review settings`);
@@ -684,15 +687,29 @@ ${metrics.sessions.length} sessions:`
   }
 
   function populateGbSection(gbSection) {
+    // display in bold count of kanji in stages 1 & 2
+    // because they are weighted
+    let kanjiWeightLabel =
+      metrics.newKanji > 0 ? `<strong>${metrics.newKanji}</strong>k, ` : "";
+
+    // display any extra misses in bold because they are weighted
+    // if misses < allowed percentage, then just show the count (in normal font)
+    let missLabel = "";
+    if (metrics.extraMissesPerDay() > 0) {
+      missLabel += `${metrics.allowedMissesPerDay()}+<strong>${metrics.extraMissesPerDay()}</strong>m`;
+    } else {
+      missLabel += `${Math.round(metrics.missesPerDay())}m`;
+    }
+
+    // Difficulty label shows count of Apprentice items plus any weighting
+    let diffLabel = `${metrics.apprentice}A (${kanjiWeightLabel}${missLabel})`;
+
+    // Pace label shows reviews/day and number of sessions
     let paceLabel = `rev./day (${metrics.sessions.length} sess.)`;
+
     gbSection.innerHTML =
-      renderGaugeDiv(
-        "gbDifficulty",
-        "Difficulty",
-        `${metrics.apprentice} (${metrics.newKanji}k/${Math.round(
-          metrics.missesPerDay()
-        )}m)`
-      ) + renderGaugeDiv("gbLoad", "Pace", paceLabel);
+      renderGaugeDiv("gbDifficulty", "Difficulty", diffLabel) +
+      renderGaugeDiv("gbLoad", "Pace", paceLabel);
 
     let gauge = gbSection.querySelector("#gbDifficulty");
     setGaugeValue(gauge, metrics.difficulty());
