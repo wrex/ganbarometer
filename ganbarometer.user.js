@@ -684,6 +684,7 @@ ${metrics.sessions.length} sessions:`
   }
 
   function populateGbSection(gbSection) {
+    let paceLabel = `rev./day (${metrics.sessions.length} sess.)`;
     gbSection.innerHTML =
       renderGaugeDiv(
         "gbDifficulty",
@@ -691,7 +692,7 @@ ${metrics.sessions.length} sessions:`
         `${metrics.apprentice} (${metrics.newKanji}k/${Math.round(
           metrics.missesPerDay()
         )}m)`
-      ) + renderGaugeDiv("gbLoad", "Pace", "reviews/day");
+      ) + renderGaugeDiv("gbLoad", "Pace", paceLabel);
 
     let gauge = gbSection.querySelector("#gbDifficulty");
     setGaugeValue(gauge, metrics.difficulty());
