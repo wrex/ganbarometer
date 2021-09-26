@@ -141,7 +141,7 @@
 
       // Heuristic 2: missed items are harder than other apprentice items
       let allowedMisses = Math.round(
-        settings.normalMisses * this.reviewsPerDay()
+        (settings.normalMisses / 100) * this.reviewsPerDay()
       );
       let extraMisses = this.missesPerDay() - allowedMisses;
       if (extraMisses > 0) {
