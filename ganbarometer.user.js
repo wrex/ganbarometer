@@ -34,16 +34,16 @@
     interval: 72, // Number of hours to summarize reviews over
     sessionIntervalMax: 2, // max minutes between reviews in same session
     normalApprenticeQty: 100, // normal number of items in apprentice queue
-    newKanjiWeighting: 0.05, // 0.05 => 10 new kanji make it 50% harder
+    newKanjiWeighting: "0.05", // 0.05 => 10 new kanji make it 50% harder
     normalMissPercent: 20, // no additional weighting for up to 20% of daily reviews
-    extraMissesWeighting: 0.03, // 0.03 => 10 extra misses make it 30% harder
+    extraMissesWeighting: "0.03", // 0.03 => 10 extra misses make it 30% harder
     maxPace: 300, // maximum number of reviews per day in load graph (50% is normal)
     backgroundColor: "#f4f4f4", // section background color
     bucketCount: 9,
     bucketLabels:
       '["10s", "20s", "30s", "1m", "1.5m", "2m", "5m", "10m", "&gt;10m"]',
     bucketStartSeconds: "[ 0, 10, 20, 30, 60, 90, 120, 300, 600]",
-    immediateLoad: true,
+    immediateLoad: false,
     debug: false,
   };
 
@@ -207,6 +207,20 @@
         default: defaults.backgroundColor,
         hover_tip: "Background color for theming",
       },
+      immediateLoad: {
+        type: "checkbox",
+        label: "Display immediately after loading settings?",
+        default: defaults.immediateLoad,
+        hover_tip: `Display immediately, or wait for data from API?
+Checked effectively keeps section at top of page,
+Unchecked position depends on load order of other scripts.`,
+      },
+      debug: {
+        type: "checkbox",
+        label: "Debug",
+        default: defaults.debug,
+        hover_tip: "Display debug info on console?",
+      },
       difficulty_section: {
         type: "section",
         label: "Difficulty gauge",
@@ -221,13 +235,12 @@
         max: 500,
       },
       newKanjiWeighting: {
-        type: "number",
+        type: "text",
         label: "New kanji weighting factor",
         default: defaults.newKanjiWeighting,
         hover_tip:
           "A value of 0.05 means 10 kanji in stages 1 & 2 imply 50% higher difficulty (0 - 0.1)",
-        min: 0,
-        max: 0.1,
+        validate: validateWeighting,
       },
       normalMissPercent: {
         type: "number",
@@ -239,13 +252,12 @@
         max: 50,
       },
       extraMissesWeighting: {
-        type: "number",
+        type: "text",
         label: "Extra misses weighting",
         default: defaults.extraMissesWeighting,
         hover_tip:
           "A value of 0.03 means 10 extra misses imply 30% higher difficulty (0 - 0.1)",
-        min: 0,
-        max: 0.1,
+        validate: validateWeighting,
       },
       reviews_section: {
         type: "section",
@@ -285,21 +297,6 @@
         default: defaults.bucketStartSeconds,
         hover_tip:
           "Starting seconds (JSON array). Length must match number of interval buckets",
-      },
-      divider: {
-        type: "divider",
-      },
-      immediateLoad: {
-        type: "checkbox",
-        label: "Display <section> immediately after loading settings?",
-        default: defaults.immediateLoad,
-        hover_tip: "Display <section> immediately, or wait for data from API?",
-      },
-      debug: {
-        type: "checkbox",
-        label: "Debug",
-        default: defaults.debug,
-        hover_tip: "Display debug info on console?",
       },
       version: {
         type: "input",
@@ -351,6 +348,14 @@ Click "OK" to be forwarded to installation instructions.`
       return true;
     } else {
       return "Interval must be between 1-24 or a multiple of 24 hours";
+    }
+  }
+
+  function validateWeighting(value, config) {
+    if (value >= 0 && value <= 0.1) {
+      return true;
+    } else {
+      return "Weighting must be between 0 and 0.1";
     }
   }
 
