@@ -43,6 +43,7 @@
     bucketLabels:
       '["10s", "20s", "30s", "1m", "1.5m", "2m", "5m", "10m", "&gt;10m"]',
     bucketStartSeconds: "[ 0, 10, 20, 30, 60, 90, 120, 300, 600]",
+    immediateLoad: true,
     debug: false,
   };
 
@@ -174,7 +175,8 @@
   };
 
   // To be populated by updateGauges()
-  let settings = {};
+  let settings = defaults;
+
   const settingsConfig = {
     script_id: script_id,
     title: script_name,
@@ -287,6 +289,12 @@
       divider: {
         type: "divider",
       },
+      immediateLoad: {
+        type: "checkbox",
+        label: "Display <section> immediately after loading settings?",
+        default: defaults.immediateLoad,
+        hover_tip: "Display <section> immediately, or wait for data from API?",
+      },
       debug: {
         type: "checkbox",
         label: "Debug",
@@ -302,15 +310,14 @@
     },
   };
 
+  let gbSectionInserted = false;
+
   // ----------------------------------------------------------------------
 
   // ------------- Begin main execution sequence --------------------------
 
   // First load the styling
   loadCSS();
-
-  // then add section and populate gauges with dummy data
-  insertGbSection();
 
   // Ensure WKOF is installed
   if (!wkof) {
@@ -397,6 +404,7 @@ Click "OK" to be forwarded to installation instructions.`
 
   // Update the displayed gauges with current metrics
   async function updateGauges(loadedSettings) {
+    // Ensure appropriate version of settings are loaded
     if (
       typeof loadedSettings.version == "undefined" ||
       loadedSettings.version != requiredSettingsVersion
@@ -423,12 +431,21 @@ Click "OK" to be forwarded to installation instructions.`
 
     // new settings, so refresh the content
     loadCSS();
-    let gbSection = document.querySelector(`.${script_id}`);
-    if (gbSection != null) {
-      // already rendered, so repopulate
+
+    // Add the section to the DOM if not already there
+    if (settings.immediateLoad && !gbSectionInserted) {
+      // Don't wait for metrics
+      insertGbSection();
       await collectMetrics();
-      populateGbSection(document.querySelector(`.${script_id}`));
+    } else if (!gbSectionInserted) {
+      // wait for metrics
+      await collectMetrics();
+      insertGbSection();
+    } else {
+      await collectMetrics();
     }
+
+    populateGbSection(document.querySelector(`.${script_id}`));
   }
 
   function loadCSS() {
@@ -724,6 +741,7 @@ ${metrics.sessions.length} sessions:`
     // Now add our new section at the just before the forum list
     document.querySelector(".progress-and-forecast").before(section);
 
+    gbSectionInserted = true;
     return section;
   }
 
