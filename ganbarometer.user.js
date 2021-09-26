@@ -178,6 +178,10 @@
     title: script_name,
     on_save: updateGauges,
     content: {
+      general_section: {
+        type: "section",
+        label: "General",
+      },
       interval: {
         type: "number",
         label: "Review history hours",
@@ -193,12 +197,22 @@
         min: 1,
         max: 10,
       },
+      backgroundColor: {
+        type: "color",
+        label: "Background color",
+        default: defaults.backgroundColor,
+        hover_tip: "Background color for theming",
+      },
+      difficulty_section: {
+        type: "section",
+        label: "Difficulty gauge",
+      },
       normalApprenticeQty: {
         type: "number",
         label: "Desired apprentice quantity",
         default: defaults.normalApprenticeQty,
         hover_tip:
-          "Number of desired items in the Apprentice bucket (30 - 500)",
+          "Desired number of items in the Apprentice bucket (30 - 500)",
         min: 30,
         max: 500,
       },
@@ -229,6 +243,10 @@
         min: 0,
         max: 0.1,
       },
+      reviews_section: {
+        type: "section",
+        label: "Reviews/day gauge",
+      },
       maxPace: {
         type: "number",
         label: "Maximum reviews per day",
@@ -238,11 +256,8 @@
         min: 10,
         max: 500,
       },
-      backgroundColor: {
-        type: "color",
-        label: "Background color",
-        default: defaults.backgroundColor,
-        hover_tip: "Background color for theming",
+      divider: {
+        type: "divider",
       },
       debug: {
         type: "checkbox",
