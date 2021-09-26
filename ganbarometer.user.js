@@ -141,9 +141,9 @@
 
       // Heuristic 2: missed items are harder than other apprentice items
       let allowedMisses = Math.round(
-        settings.normalMisses * this.reviewsPerDay
+        settings.normalMisses * this.reviewsPerDay()
       );
-      let extraMisses = this.missesPerDay - allowedMisses;
+      let extraMisses = this.missesPerDay() - allowedMisses;
       if (extraMisses > 0) {
         raw = raw * (1 + extraMisses * settings.extraMissesWeighting);
       }
@@ -327,8 +327,33 @@ Click "OK" to be forwarded to installation instructions.`
     return wkof.Settings.load(script_id, defaults);
   }
 
+  function resetMetrics() {
+    metrics.reviewed = 0;
+    metrics.sessions = [];
+    metrics.apprentice = 0;
+    metrics.newKanji = 0;
+    metrics.pareto = [
+      // buckets every 15 seconds up to 2 minutes,
+      // a bucket for 2 to 10 minutes, then a bucket for everything > 10 min
+      // name, rangeStart in seconds, count
+      { name: `10"`, rangeStart: 0, count: 0 }, // 0 to 10 seconds
+      { name: `20"`, rangeStart: 10, count: 0 }, // 10 to 20 seconds
+      { name: `30"`, rangeStart: 20, count: 0 }, // 20 to 30 seconds
+      { name: `1'`, rangeStart: 30, count: 0 }, // 30 to 1 min
+      { name: `1'30"`, rangeStart: 60, count: 0 }, // 1' to 1'30"
+      { name: `2'`, rangeStart: 90, count: 0 }, // 1'30" to 2'
+      { name: `5'`, rangeStart: 120, count: 0 }, // 2' to 5'
+      { name: `10'`, rangeStart: 300, count: 0 }, // 5' to 10'
+      { name: `&gt;10'`, rangeStart: 600, count: 0 }, // > 10 min
+    ];
+  }
+
   // Update the displayed gauges with current metrics
   async function updateGauges(loadedSettings) {
+    // updateGauges will be executed whenever settings change, etc.
+    // Ensure metrics are cleared before continuing.
+    resetMetrics();
+
     if (
       typeof loadedSettings.version == "undefined" ||
       loadedSettings.version != requiredSettingsVersion
@@ -754,7 +779,7 @@ ${metrics.sessions.length} sessions:`
       this.minutes = function () {
         // might be just one review in session or VERY short timespan between
         // start and end, so return 15 seconds for any value less than 15 seconds
-        return (endTime - startTime) / 1000 > 15
+        return (this.endTime - this.startTime) / 1000 > 15
           ? Math.round((this.endTime - this.startTime) / (1000 * 60))
           : 15 / 60;
       };
