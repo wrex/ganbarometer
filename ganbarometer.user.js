@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ganbarometer
 // @namespace    http://tampermonkey.net/
-// @version      2.1dev
+// @version      3.0
 // @description  Add Difficulty, Load, and Speed gauges to the Wanikani Dashboard
 // @author       Rex Walters (Rrwrex AKA rw [at] pobox.com)
 // @copyright    2021 Rex Robert Walters
@@ -678,9 +678,9 @@ Click "OK" to be forwarded to installation instructions.`
   function logMetrics(metrics) {
     console.log(
       `------ GanbarOmeter debug output ------
-
+ 
 Local time: ${Date()}
-
+ 
 settings:
   - interval: ${settings.interval}
   - sessionIntervalMax: ${settings.sessionIntervalMax}
@@ -690,7 +690,7 @@ settings:
   - extraMissesWeighting: ${settings.extraMissesWeighting}
   - maxPace: ${settings.maxPace}
   - backgroundColor: ${settings.backgroundColor}
-
+ 
 ${metrics.reviewed} reviews in ${settings.interval} hours
 ${Math.round(10 * metrics.missesPerDay()) / 10} misses per day on average
 ${metrics.minutes()} total minutes
